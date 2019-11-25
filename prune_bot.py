@@ -3,6 +3,7 @@ import gym
 import matplotlib.pyplot as plt
 import copy
 import time
+import os
 
 def sigmoid(x):
     return np.exp(x) / (1 + np.exp(x))
@@ -28,6 +29,7 @@ class PruneableAgent():
         self.mut_noise = 1e0
         self.discrete = discrete
         self.best_gen = -float("Inf")
+        self.best_agent = -float("Inf")
         np.random.seed(self.seed)
 
         self.init_pop()
@@ -78,13 +80,13 @@ class PruneableAgent():
             complexity_penalty = -1 * np.mean([np.mean(layer) \
                     for layer in self.pop[agent_idx]])
 
-            fitness.append(accumulated_reward + complexity_penalty)
+            fitness.append((accumulated_reward + complexity_penalty)/epds)
         plt.close("all")
 
 
         return fitness, total_steps
 
-    def update_pop(self, fitness):
+    def update_pop(self, fitness, recombine=False):
 
         # make sure fitnesses aren't equal
         fitness = fitness + np.random.randn(len(fitness),)*1e-16    
@@ -94,13 +96,28 @@ class PruneableAgent():
         sorted_fitness = np.array(fitness)[sort_indices]
         #sorted_pop = self.pop[sort_indices]
         
-        keep = int(np.ceil(0.1*self.pop_size))
-        if np.mean(sorted_fitness[:keep]) > self.best_gen:
+        mean_connections = 0
+        for pop_idx in range(self.pop_size):
+            mean_connections += np.sum([np.sum(layer) \
+                    for layer in self.pop[pop_idx]])
+        mean_connections /= self.pop_size
 
+        keep = int(np.ceil(0.1*self.pop_size))
+        if sorted_fitness[0] > self.best_agent:
+            # keep best agent
+            print("new best elite agent: {} v {}".\
+                    format(sorted_fitness[0], self.best_agent))
+            self.elite_agent = self.pop[sort_indices[0]]
+            self.best_agent = sorted_fitness[0]
+
+        if np.mean(sorted_fitness[:keep]) > self.best_gen:
+            # keep best elite population
             print("new best elite population: {} v {}".\
                     format(np.mean(sorted_fitness[:keep]), self.best_gen))
             self.best_gen = np.mean(sorted_fitness[:keep])
+
             self.elite_pop = []
+            self.elite_pop.append(self.elite_agent)
             for oo in range(keep):
                 self.elite_pop.append(self.pop[sort_indices[oo]])
         else:
@@ -117,9 +134,8 @@ class PruneableAgent():
             idx = np.random.choice(a,size=1,p=p)[0]
             self.pop.append(copy.deepcopy(self.elite_pop[idx]))
         
-        self.mutate_pop()
 
-        if(0):
+        if(recombine):
             for ll in range(keep,self.pop_size):
                 new_layers = []
                 for mm in range(len(self.hid)+1):
@@ -132,6 +148,12 @@ class PruneableAgent():
 
 
                 self.pop.append(new_layers)
+#        elite_connections = 0.0
+#        for elite_idx in range(num_elite):
+#            elite_connections += (mean_connections - np.sum([np.sum(layer) for layer in self.elite_pop[elite_idx]]))**2
+#
+#        mutation_rate = np.min([ 0.5, np.sqrt(elite_connections / num_elite) / mean_connections])
+        return sorted_fitness, num_elite, 0.02# mutation_rate
 
     def init_pop(self):
         # represent population as a list of lists of np arrays
@@ -163,41 +185,105 @@ class PruneableAgent():
 
 if __name__ == "__main__":
 
-    env_name = "CartPole-v0"
-    #env_name = "BipedalWalker-v2"
-    env_name = "LunarLander-v2"
-    env_name = "Acrobot-v1"
-    env_name = "Pendulum-v0"
+    save_every = 10
+    population_size = 1000
+    max_generations = 1000
+    thresh_connections = 950
+    thresh_performance = {"CartPole-v0": 195,\
+                        "Acrobot-v1": -70,\
+                        "LunarLander-v2": 200,\
+                        "Pendulum-v0": -125,\
+                        "BipedalWalker-v2": 300 }
+    mutate_rate = 0.01
 
-    env = gym.make(env_name)
+    env_names = ["Acrobot-v1", "LunarLander-v2",\
+            "Pendulum-v0", "BipedalWalker-v2", "CartPole-v0"]
 
-    env._max_episode_steps = 100
-    print("env made",env.action_space, env.observation_space)
-    obs_dim = env.observation_space.shape[0]
-    try:
-        act_dim = env.action_space.n
-        discrete = True
-    except:
-        act_dim = env.action_space.sample().shape[0]
-        discrete = False
+    exp_id = "exp" + str(int(time.time()))
 
-    population = PruneableAgent(obs_dim, act_dim, pop_size=500, discrete=discrete)
+    res_dir = os.listdir("./results/")
+    model_dir = os.listdir("./models/")
+    if exp_id not in res_dir:
+        os.mkdir("./results/"+exp_id)
+    if exp_id not in model_dir:
+        os.mkdir("./models/"+exp_id)
 
-    total_total_steps = 0
-    for generation in range(1000):
-        if generation % 100 == 0: 
-            render = True
-        else:
-            render = False
-        fitness, total_steps = population.get_fitness(env, render=render)
-        total_total_steps += total_steps
+    render = False
+    for my_seed in [0,1,2]:
+        np.random.seed(my_seed)
+        for env_name in env_names:
 
-        population.update_pop(fitness)
-        connections = np.sum([np.sum(layer) for layer in population.pop[0]])
-        print("generation {}".format(generation))
-        print(" connections in best agent", connections)
-        print("fitness stats: mean {:.3f} | std: {:.3f} | max: {:.3f} | min: {:.3f}".format(np.mean(fitness), np.std(fitness), np.max(fitness), np.min(fitness)))
+            results = {"generation": [],\
+                    "total_env_interacts": [],\
+                    "best_agent_fitness": [],\
+                    "pop_mean_fit": [],\
+                    "pop_std_fit": [],\
+                    "pop_min_fit": [],\
+                    "elite_mean_fit": [],\
+                    "elite_std_fit": [],\
+                    "elite_min_fit": [],\
+                    "elite_max_fit": [],\
+                    "elite_agent_sum": []}
 
-    import pdb; pdb.set_trace()
+            env = gym.make(env_name)
 
-    population.get_fitness(env, render=True)
+            env._max_episode_steps = 200 #max_env_steps[env_name]
+
+            obs_dim = env.observation_space.shape[0]
+
+            try:
+                act_dim = env.action_space.n
+                discrete = True
+            except:
+                act_dim = env.action_space.sample().shape[0]
+                discrete = False
+
+            population = PruneableAgent(obs_dim, act_dim, \
+                    pop_size=population_size, discrete=discrete)
+
+            total_total_steps = 0
+            for generation in range(max_generations):
+                #if generation % 100 == 0: 
+                #    render = True
+                #else:
+                #    render = False
+                fitness, total_steps = population.get_fitness(env, render=render)
+                total_total_steps += total_steps
+
+                sorted_fitness, num_elite, mutate_rate = population.update_pop(fitness)
+                population.mutate_pop(rate=mutate_rate)
+
+                results["generation"].append(generation)
+                results["total_env_interacts"].append(total_total_steps)
+                results["best_agent_fitness"].append(fitness[0])
+                results["pop_mean_fit"].append(np.mean(fitness))
+                results["pop_std_fit"].append(np.std(fitness))
+                results["pop_min_fit"].append(np.min(fitness))
+                results["elite_mean_fit"].append(np.mean(\
+                        sorted_fitness[:num_elite]))
+                results["elite_max_fit"].append(np.max(\
+                        sorted_fitness[:num_elite]))
+                results["elite_min_fit"].append(np.min(\
+                        sorted_fitness[:num_elite]))
+
+                connections = np.sum([np.sum(layer) for layer in population.elite_agent])
+                results["elite_agent_sum"].append(connections)
+
+
+                print("generation {}, mutation rate = {}".format(generation, mutate_rate))
+                print(" connections in best agent", connections)
+                print("fitness stats: mean {:.3f} | std: {:.3f} | max: {:.3f} | min: {:.3f}".format(np.mean(fitness), np.std(fitness), np.max(fitness), np.min(fitness)))
+
+                if generation % save_every == 0:
+                    np.save("./results/{}/env{}_exp{}_s{}.npy".format(\
+                            exp_id, env_name[0:6], exp_id, my_seed), results)
+                    np.save("./models/{}/elite_pop{}_env{}_s{}.npy".format(\
+                            exp_id, exp_id, env_name[0:6], my_seed), \
+                            population.elite_pop)
+
+                if results["elite_mean_fit"][-1] >= thresh_performance[env_name]\
+                        and\
+                        results["elite_agent_sum"][-1] <= thresh_connections:
+
+                    print("environment solved, ending training")
+                    break
