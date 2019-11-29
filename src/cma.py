@@ -227,7 +227,7 @@ if __name__ == "__main__":
     res_dir = os.listdir("./results/")
     model_dir = os.listdir("./models/")
 
-    exp_dir = "cma_16"
+    exp_dir = "cma_16_exp000"
     exp_time = str(int(time.time()))[-7:]
     if exp_dir not in res_dir:
         os.mkdir("./results/"+exp_dir)
