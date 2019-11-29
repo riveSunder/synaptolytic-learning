@@ -331,8 +331,8 @@ if __name__ == "__main__":
                 results["std_agent_sum"].append(std_connections)
 
                 if generation % save_every == 0:
-                    np.save("./results/{}/prunemk1_{}_gen{}.npy"\
-                            .format(exp_dir, exp_id, generation),results)
+                    np.save("./results/{}/prunemk1_{}.npy"\
+                            .format(exp_dir, exp_id),results)
                     np.save("./models/{}/prunemk1_elite_pop_{}_gen{}.npy"\
                             .format(exp_dir,exp_id, generation),agent.elite_pop)
 

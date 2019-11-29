@@ -388,10 +388,10 @@ if __name__ == "__main__":
                 results["std_agent_sum"].append(std_connections)
 
                 if generation % save_every == 0:
-                    np.save("./results/{}/prunemk2_{}_gen{}.npy"\
-                            .format(exp_dir, exp_id),results)
+                    np.save("./results/{}/prunemk2_{}.npy"\
+                            .format(exp_dir, exp_id), results)
                     np.save("./models/{}/prunemk2_elite_pop_{}_gen{}.npy"\
-                            .format(exp_dir,exp_id),agent.elite_pop)
+                            .format(exp_dir,exp_id, generation),agent.elite_pop)
 
                 if results["elite_mean_fit"][-1] >= \
                         thresh_performance[env_name]\
