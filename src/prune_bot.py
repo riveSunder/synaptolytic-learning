@@ -46,28 +46,21 @@ class PruneableAgent():
         np.random.seed(self.seed)
 
         self.init_pop()
-        #self.mutate_pop(rate=0.25)
+        self.mutate_pop(rate=0.25)
 
     def get_action(self, obs, agent_idx=0, scaler=1.0):
 
         x = obs        
-        nodes = []
-        nodes.append(x)
-
         for ii in range(len(self.hid)):
             x = np.matmul(x, scaler*self.pop[agent_idx][ii])
             x = np.tanh(x)
-            nodes.append(x)
             #x[x<0] = 0 # relu
 
         if self.discrete:
-            x = self.by + np.matmul(x, scaler*self.pop[agent_idx][-1])
+            x = sigmoid(self.by + np.matmul(x, scaler*self.pop[agent_idx][-1]))
             #x = np.where(x > 0.5, 1, 0) 
         else:
             x = self.by + np.matmul(x, scaler*self.pop[agent_idx][-1])
-        
-
-        nodes.append(np.tanh(x))
 
         if self.discrete:
             x = softmax(x)
@@ -76,77 +69,7 @@ class PruneableAgent():
             x = x
             act = np.tanh(x)
 
-        self.node_buffer.append(nodes)
         return act
-
-    def init_node_buffer(self):
-        self.node_buffer = []
-        self.node_means = None
-        self.node_cov = None
-
-    def get_node_cov(self):
-
-        num_layers = len(self.node_buffer[0])
-        
-        if self.node_means == None:
-            self.node_means = [np.zeros_like(nodes) \
-                    for nodes in self.node_buffer[0]]
-            
-        self.node_cov = [\
-                np.zeros((self.node_buffer[0][aa].shape[0], \
-                self.node_buffer[0][aa+1].shape[0])) \
-                for aa in range(len(self.node_buffer[0])-1)]
-
-        new_node_means = [np.zeros_like(nodes) \
-                    for nodes in self.node_buffer[0]]
-
-        len_buffer = len(self.node_buffer)
-        nb_samples = 512
-        nb_samples = np.max([nb_samples, len_buffer])
-        for gg in np.random.randint(0, len_buffer, nb_samples):
-            for hh in range(num_layers):
-                new_node_means[hh] += self.node_buffer[gg][hh]
-
-                if hh < (num_layers - 1):
-                    for ii in range(len(self.node_buffer[gg][hh])):
-                        for jj in range(len(self.node_buffer[gg][hh+1])):
-                            self.node_cov[hh][ii,jj] += (\
-                                    self.node_buffer[gg][hh][ii] \
-                                    - self.node_means[hh][ii])\
-                                    * (self.node_buffer[gg][hh+1][jj]\
-                                    - self.node_means[hh+1][jj]) \
-
-                    self.node_cov[hh] = softmax(- self.node_cov[hh] / nb_samples)
-                                     
-        self.node_means = [new_node_mean / nb_samples\
-                for new_node_mean in new_node_means]
-        
-    def cov_mutate_pop(self):
-        
-
-        for ll in range(self.pop_size):
-            for mm in range(len(self.pop[ll])):
-                temp_layer = np.copy(self.pop[ll][mm])
-                prunes_per_layer = .05 * temp_layer.shape[0]*temp_layer.shape[1]
-
-                temp_layer *= 1.0 * (np.random.random((temp_layer.shape[0],\
-                        temp_layer.shape[1])) > (self.node_cov[mm] \
-                        * prunes_per_layer))
-
-                self.pop[ll][mm] = temp_layer
-
-
-    def mutate_pop(self, rate=0.1):
-        # mutate population by 
-        
-        for jj in range(self.pop_size):
-            for kk in range(len(self.pop[jj])):
-                temp_layer = np.copy(self.pop[jj][kk])
-                
-                temp_layer *= np.random.random((temp_layer.shape[0],\
-                        temp_layer.shape[1])) > rate
-
-                self.pop[jj][kk] = temp_layer
 
     def get_fitness(self, env, epds=6, values=[1.0], render=False):
         fitness = []
@@ -160,6 +83,7 @@ class PruneableAgent():
                 for epd in range(epds):
 
                     obs = env.reset()
+
                     done=False
                     while not done:
                         if render: env.render(); time.sleep(0.05)
@@ -215,33 +139,44 @@ class PruneableAgent():
             self.elite_pop.append(self.elite_agent)
             for oo in range(keep):
                 self.elite_pop.append(self.pop[sort_indices[oo]])
-
-            this_gens_best = None
         else:
-            this_gens_best = []
-            for oo in range(keep+1):
-                this_gens_best.append(self.pop[sort_indices[oo]])
+            # decay recollection of greatest generation 
+            pass
+            # only the best rep gets in
+        #always keep the fittest individual
 
         self.pop = []
         num_elite = len(self.elite_pop)
-        p = np.ones((num_elite)) / num_elite
+        p = np.arange(num_elite,0,-1) / np.sum(np.arange(num_elite,0,-1))
         a = np.arange(num_elite)
-        
-        if this_gens_best is not None:
-            for pp in range(num_elite):
-                #idx = np.random.choice(a,size=1,p=p)[0]
-                idx = pp
-                self.pop.append(copy.deepcopy(this_gens_best[idx]))
-            keep += 1
-        else:
-            keep = 0
-        for qq in range(keep, self.pop_size):
-            #idx = np.random.choice(a,size=1,p=p)[0]
-            idx = qq % num_elite
+        for pp in range(self.pop_size):
+            idx = np.random.choice(a,size=1,p=p)[0]
             self.pop.append(copy.deepcopy(self.elite_pop[idx]))
+        
+
+        if(recombine):
+            for ll in range(keep,self.pop_size):
+                new_layers = []
+                for mm in range(len(self.hid)+1):
+                    rec_map = np.random.randint(num_elite, size=self.pop[0][mm].shape)
+                    new_layer = np.zeros_like(self.elite_pop[0][mm])
+                    for nn in range(num_elite):
+                        new_layer = np.where(rec_map==nn, self.elite_pop[nn][mm],new_layer)
+                    new_layers.append(new_layer + self.mut_noise*np.random.randn(\
+                            new_layer.shape[0], new_layer.shape[1]))
 
 
-        return sorted_fitness, num_elite, \
+                self.pop.append(new_layers)
+        elite_connections = 0.0
+        for elite_idx in range(num_elite):
+            elite_connections += (mean_connections - np.sum([np.sum(layer)\
+                    for layer in self.elite_pop[elite_idx]]))**2
+
+        mutation_rate = np.sqrt(elite_connections / num_elite)
+        mutation_rate /= mean_connections
+        #mutation_rate *= 0.995
+        mutation_rate = np.max([np.min([0.125, mutation_rate]), 0.001])
+        return sorted_fitness, num_elite, mutation_rate, \
                 mean_connections, std_connections
 
     def init_pop(self):
@@ -260,6 +195,17 @@ class PruneableAgent():
             layers.append(layer)
             self.pop.append(layers)
 
+    def mutate_pop(self, rate=0.1):
+        # mutate population by 
+        
+        for jj in range(self.pop_size):
+            for kk in range(len(self.pop[jj])):
+                temp_layer = np.copy(self.pop[jj][kk])
+                
+                temp_layer *= np.random.random((temp_layer.shape[0],\
+                        temp_layer.shape[1])) > rate
+
+                self.pop[jj][kk] = temp_layer
 
 if __name__ == "__main__":
 
@@ -268,6 +214,7 @@ if __name__ == "__main__":
     save_every = 50
     hid_dim = 16
 
+    
     env_names = ["InvertedPendulumSwingupBulletEnv-v0",\
             "HalfCheetahBulletEnv-v0",\
             "ReacherBulletEnv-v0"]
@@ -286,12 +233,13 @@ if __name__ == "__main__":
     res_dir = os.listdir("./results/")
     model_dir = os.listdir("./models/")
 
-    exp_dir = "prune_mk2_16x16"
+    exp_dir = "prune_mk1_16x16"
     exp_time = str(int(time.time()))[-7:]
     if exp_dir not in res_dir:
         os.mkdir("./results/"+exp_dir)
     if exp_dir not in model_dir:
         os.mkdir("./models/"+exp_dir)
+
     render = False
     for my_seed in [2,1,0]:
         np.random.seed(my_seed)
@@ -304,10 +252,10 @@ if __name__ == "__main__":
             except:
                 pass
             
-            
             results = {"generation": [],\
                     "total_env_interacts": [],\
                     "wall_time": [],\
+                    "prune_prob": [],\
                     "best_agent_fitness": [],\
                     "pop_mean_fit": [],\
                     "pop_std_fit": [],\
@@ -325,8 +273,6 @@ if __name__ == "__main__":
                     env_name[:6]+env_name[-8:-3] + "_s" + str(my_seed)
 
             env = gym.make(env_name)
-
-            #env._max_episode_steps = 200 #max_env_steps[env_name]
 
             obs_dim = env.observation_space.shape[0]
 
@@ -348,28 +294,25 @@ if __name__ == "__main__":
                 #    render = True
                 #else:
                 #    render = False
+                #if "Bullet" in env_name:
+                #    env._max_episode_steps = np.max([200, agent.best_agent]) #max_env_steps[env_name]
 
-                if "Bullet" in env_name:
-                    env._max_episode_steps = np.max([200, agent.best_agent]) #max_env_steps[env_name]
-
-                agent.init_node_buffer()
                 fitness, total_steps = agent.get_fitness(env, render=render)
                 total_total_steps += total_steps
 
-                sorted_fitness, num_elite, \
+                sorted_fitness, num_elite, mutate_rate, \
                         mean_connections, std_connections = \
                         agent.update_pop(fitness, recombine=False)
 
                 connections = np.sum([np.sum(layer) for \
                         layer in agent.elite_agent])
 
-                agent.get_node_cov()
-                agent.cov_mutate_pop()
-
+                agent.mutate_pop(rate=mutate_rate)
 
                 results["generation"].append(generation)
                 results["total_env_interacts"].append(total_total_steps)
                 results["wall_time"].append(time.time()-t0)
+                results["prune_prob"].append(mutate_rate)
                 results["best_agent_fitness"].append(sorted_fitness[0])
                 results["pop_mean_fit"].append(np.mean(fitness))
                 results["pop_std_fit"].append(np.std(fitness))
@@ -388,10 +331,10 @@ if __name__ == "__main__":
                 results["std_agent_sum"].append(std_connections)
 
                 if generation % save_every == 0:
-                    np.save("./results/{}/prunemk2_{}_gen{}.npy"\
-                            .format(exp_dir, exp_id),results)
-                    np.save("./models/{}/prunemk2_elite_pop_{}_gen{}.npy"\
-                            .format(exp_dir,exp_id),agent.elite_pop)
+                    np.save("./results/{}/prunemk1_{}_gen{}.npy"\
+                            .format(exp_dir, exp_id, generation),results)
+                    np.save("./models/{}/prunemk1_elite_pop_{}_gen{}.npy"\
+                            .format(exp_dir,exp_id, generation),agent.elite_pop)
 
                 if results["elite_mean_fit"][-1] >= \
                         thresh_performance[env_name]\
@@ -400,9 +343,9 @@ if __name__ == "__main__":
 
                     print("environment solved, ending training")
                     break
-
-                print("mk2 gen {} elapsed {:.3f}, mean/max/min fitness: {:.3f}/{:.3f}/{:.3f}, elite mean/max/min {:.3f}/{:.3f}/{:.3f}, {:.3f}/{:.3f}"\
+                print("mk1 gen {} elapsed {:.3f} mut rate {:.3f}, mean/max/min fitness: {:.3f}/{:.3f}/{:.3f}, elite {:.3f}/{:.3f}/{:.3f}, {:.3f}/{:.3f}"\
                         .format(generation, results["wall_time"][-1],\
+                        results["prune_prob"][-1],\
                         results["pop_mean_fit"][-1],\
                         results["pop_max_fit"][-1],\
                         results["pop_min_fit"][-1],\

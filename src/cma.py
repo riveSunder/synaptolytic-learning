@@ -7,22 +7,25 @@ import os
 
 from custom_envs.cartpole_swingup import CartPoleSwingUpEnv
 from gym.envs.registration import register
+import pybullet
+import pybullet_envs
+from pybullet_envs.bullet import MinitaurBulletEnv
 
-register(
-    id='CartPoleSwingUp-v0',
-    entry_point='custom_envs.cartpole_swingup:CartPoleSwingUpEnv',
-    max_episode_steps=200,
-    reward_threshold=25.0,
-    )
+#register(
+#    id='CartPoleSwingUp-v0',
+#    entry_point='custom_envs.cartpole_swingup:CartPoleSwingUpEnv',
+#    max_episode_steps=200,
+#    reward_threshold=25.0,
+#    )
 
 
 class CMAAgent():
     def __init__(self, obs_dim, act_dim, population_size, \
-            seed=0, discrete=False):
+            seed=0, hid_dim=16, discrete=False):
 
         self.act_dim = act_dim
         self.obs_dim = obs_dim
-        self.hid_dim = 8
+        self.hid_dim = hid_dim
         self.population_size = population_size
 
         self.seed = seed
@@ -58,7 +61,7 @@ class CMAAgent():
 
         return act
 
-    def get_fitness(self, env, epds=6, render=False):
+    def get_fitness(self, env, epds=2, render=False):
         fitness = []
         complexity = []
         total_steps = 0
@@ -92,6 +95,13 @@ class CMAAgent():
 
         sorted_fitness = np.array(fitness)[sort_indices]
         #sorted_pop = self.pop[sort_indices]
+
+        connections = []
+        for pop_idx in range(self.population_size):
+            connections.append(np.sum([np.sum(np.abs(layer)) \
+                    for layer in self.pop[pop_idx]]))
+        mean_connections = np.mean(connections)
+        std_connections = np.std(connections)
 
         keep = int(np.ceil(0.125*self.population_size))
         if sorted_fitness[0] > self.best_agent:
@@ -156,7 +166,8 @@ class CMAAgent():
 
         self.init_pop()
 
-        return sorted_fitness, num_elite
+        return sorted_fitness, num_elite,\
+                mean_connections, std_connections
 
     def init_dist(self):
         self.layer_dist = []
@@ -194,29 +205,133 @@ class CMAAgent():
 
 if __name__ == "__main__":
 
-    print("good to go")
-    population_size = 100
+    min_generations = 100
+    epds = 4
+    save_every = 50
+    hid_dim = 16
 
-    env_names = ["BipedalWalker-v2","CartPoleSwingUp-v0"]
+    env_names = ["InvertedPendulumSwingupBulletEnv-v0",\
+            "HalfCheetahBulletEnv-v0",\
+            "ReacherBulletEnv-v0"]
 
-    for env_name in env_names:
+    pop_size = {"InvertedPendulumSwingupBulletEnv-v0": 128,\
+            "HalfCheetachBulletEnv": 256,\
+            "ReacherBulletEnv-v0": 128}
 
-        env = gym.make(env_name)
+    thresh_performance = {"InvertedPendulumSwingupBulletEnv-v0": 850,\
+            "HalfCheetachBulletEnv": 3000,\
+            "ReacherBulletEnv-v0": 200}
+    max_generation = {"InvertedPendulumSwingupBulletEnv-v0": 1024,\
+            "HalfCheetachBulletEnv": 1024,\
+            "ReacherBulletEnv-v0": 1024}
+    res_dir = os.listdir("./results/")
+    model_dir = os.listdir("./models/")
 
-        obs_dim = env.observation_space.shape[0]
-            
-        try:
-            act_dim = env.action_space.n
-            discrete = True
-        except:
-            act_dim = env.action_space.sample().shape[0]
-            discrete = False
+    exp_dir = "cma_16"
+    exp_time = str(int(time.time()))[-7:]
+    if exp_dir not in res_dir:
+        os.mkdir("./results/"+exp_dir)
+    if exp_dir not in model_dir:
+        os.mkdir("./models/"+exp_dir)
 
-        agent = CMAAgent( obs_dim, act_dim, population_size, discrete=discrete)
+    for my_seed in [2,1,0]:
+        np.random.seed(my_seed)
+        for env_name in env_names:
 
-        for generation in range(100):
-            render = generation % 10 == 0 
-            fitness, total_steps = agent.get_fitness(env, render=render)
+            results = {"generation": [],\
+                    "total_env_interacts": [],\
+                    "wall_time": [],\
+                    "best_agent_fitness": [],\
+                    "pop_mean_fit": [],\
+                    "pop_std_fit": [],\
+                    "pop_max_fit": [],\
+                    "pop_min_fit": [],\
+                    "mean_agent_sum": [],\
+                    "std_agent_sum": [],\
+                    "elite_mean_fit": [],\
+                    "elite_std_fit": [],\
+                    "elite_min_fit": [],\
+                    "elite_max_fit": [],\
+                    "elite_agent_sum": []}
 
-            agent.update_pop(fitness)
-            print("gen {}, average fitness: {}".format(generation, np.mean(fitness)))
+            exp_id = "exp_" + exp_time + "env_" +\
+                    env_name[:6]+env_name[-12:-3] + "_s" + str(my_seed)
+
+            # build env and agent population
+            if type(env_name) == str:
+                env = gym.make(env_name)
+                render = False
+            else:
+                env = env_name(render=False)
+
+            obs_dim = env.observation_space.shape[0]
+            try:
+                act_dim = env.action_space.n
+                discrete = True
+            except:
+                act_dim = env.action_space.sample().shape[0]
+                discrete = False
+
+            population_size = pop_size[env_name]
+            agent = CMAAgent(obs_dim, act_dim,\
+                    population_size, hid_dim=hid_dim, discrete=discrete)
+
+            t0 = time.time()
+            total_total_steps = 0
+            for generation in range(max_generation[env_name]):
+
+                if "Bullet" in env_name:
+                    env._max_episode_steps = np.max([200, agent.best_agent]) #max_env_steps[env_name]
+
+                fitness, total_steps = agent.get_fitness(env, render=render,\
+                        epds=epds)
+                total_total_steps += total_steps
+                sorted_fitness, num_elite,\
+                        mean_connections, std_connections\
+                        = agent.update_pop(fitness)
+
+                connections = np.sum([np.sum(np.abs(layer)) for \
+                        layer in agent.elite_agent])
+
+                results["generation"].append(generation)
+                results["total_env_interacts"].append(total_total_steps)
+                results["wall_time"].append(time.time()-t0)
+                results["best_agent_fitness"].append(sorted_fitness[0])
+                results["pop_mean_fit"].append(np.mean(fitness))
+                results["pop_std_fit"].append(np.std(fitness))
+                results["pop_max_fit"].append(np.max(fitness))
+                results["pop_min_fit"].append(np.min(fitness))
+                results["elite_mean_fit"].append(np.mean(\
+                        sorted_fitness[:num_elite]))
+                results["elite_std_fit"].append(np.std(\
+                        sorted_fitness[:num_elite]))
+                results["elite_max_fit"].append(np.max(\
+                        sorted_fitness[:num_elite]))
+                results["elite_min_fit"].append(np.min(\
+                        sorted_fitness[:num_elite]))
+                results["elite_agent_sum"].append(connections)
+                results["mean_agent_sum"].append(mean_connections)
+                results["std_agent_sum"].append(std_connections)
+
+                if generation % save_every == 0:
+                    np.save("./results/{}/cma_{}_gen{}.npy"\
+                            .format(exp_dir, exp_id, generation),results)
+                    np.save("./models/{}/cma_elite_pop_{}_gen{}.npy"\
+                            .format(exp_dir,exp_id,generation),agent.elite_pop)
+
+                if results["elite_mean_fit"][-1] >= \
+                        thresh_performance[env_name]\
+                        and\
+                        generation >= min_generations:
+
+                    print("environment solved, ending training")
+                    break
+
+                print("gen {} elapsed {:.3f}, mean/max/min fitness: {:.3f}/{:.3f}/{:.3f} elite mean/max/min {:.3f}/{:.3f}/{:.3f}"\
+                        .format(generation, results["wall_time"][-1],\
+                        results["pop_mean_fit"][-1],\
+                        results["pop_max_fit"][-1],\
+                        results["pop_min_fit"][-1],\
+                        results["elite_mean_fit"][-1],\
+                        results["elite_max_fit"][-1],\
+                        results["elite_min_fit"][-1]))
