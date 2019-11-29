@@ -208,14 +208,14 @@ if __name__ == "__main__":
     min_generations = 100
     epds = 4
     save_every = 50
-    hid_dim = 16
+    hid_dim = 32
 
     env_names = ["InvertedPendulumSwingupBulletEnv-v0",\
             "HalfCheetahBulletEnv-v0",\
             "ReacherBulletEnv-v0"]
 
     pop_size = {"InvertedPendulumSwingupBulletEnv-v0": 128,\
-            "HalfCheetachBulletEnv": 256,\
+            "HalfCheetachBulletEnv-v0": 256,\
             "ReacherBulletEnv-v0": 128}
 
     thresh_performance = {"InvertedPendulumSwingupBulletEnv-v0": 850,\

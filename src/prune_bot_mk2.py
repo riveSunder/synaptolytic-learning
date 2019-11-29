@@ -46,7 +46,7 @@ class PruneableAgent():
         np.random.seed(self.seed)
 
         self.init_pop()
-        #self.mutate_pop(rate=0.25)
+        self.mutate_pop(rate=0.005)
 
     def get_action(self, obs, agent_idx=0, scaler=1.0):
 
@@ -101,7 +101,7 @@ class PruneableAgent():
                     for nodes in self.node_buffer[0]]
 
         len_buffer = len(self.node_buffer)
-        nb_samples = 512
+        nb_samples = 128
         nb_samples = np.max([nb_samples, len_buffer])
         for gg in np.random.randint(0, len_buffer, nb_samples):
             for hh in range(num_layers):
@@ -127,7 +127,7 @@ class PruneableAgent():
         for ll in range(self.pop_size):
             for mm in range(len(self.pop[ll])):
                 temp_layer = np.copy(self.pop[ll][mm])
-                prunes_per_layer = .05 * temp_layer.shape[0]*temp_layer.shape[1]
+                prunes_per_layer = .01 * temp_layer.shape[0]*temp_layer.shape[1]
 
                 temp_layer *= 1.0 * (np.random.random((temp_layer.shape[0],\
                         temp_layer.shape[1])) > (self.node_cov[mm] \
@@ -266,14 +266,14 @@ if __name__ == "__main__":
     min_generations = 100
     epds = 4
     save_every = 50
-    hid_dim = 16
+    hid_dim = 32
 
     env_names = ["InvertedPendulumSwingupBulletEnv-v0",\
             "HalfCheetahBulletEnv-v0",\
             "ReacherBulletEnv-v0"]
 
     pop_size = {"InvertedPendulumSwingupBulletEnv-v0": 128,\
-            "HalfCheetachBulletEnv": 256,\
+            "HalfCheetachBulletEnv-v0": 256,\
             "ReacherBulletEnv-v0": 128}
 
     thresh_performance = {"InvertedPendulumSwingupBulletEnv-v0": 850,\
@@ -338,7 +338,7 @@ if __name__ == "__main__":
                 discrete = False
 
             population_size = pop_size[env_name]
-            agent = PruneableAgent(obs_dim, act_dim, hid=[hid_dim,hid_dim], \
+            agent = PruneableAgent(obs_dim, act_dim, hid=[hid_dim], \
                     pop_size=population_size, discrete=discrete)
 
             total_total_steps = 0
