@@ -46,7 +46,7 @@ class PruneableAgent():
         np.random.seed(self.seed)
 
         self.init_pop()
-        self.mutate_pop(rate=0.005)
+        self.mutate_pop(rate=0.001)
 
     def get_action(self, obs, agent_idx=0, scaler=1.0):
 
@@ -67,7 +67,7 @@ class PruneableAgent():
             x = self.by + np.matmul(x, scaler*self.pop[agent_idx][-1])
         
 
-        nodes.append(np.tanh(x))
+        nodes.append(np.sin(x))
 
         if self.discrete:
             x = softmax(x)
@@ -101,7 +101,7 @@ class PruneableAgent():
                     for nodes in self.node_buffer[0]]
 
         len_buffer = len(self.node_buffer)
-        nb_samples = 128
+        nb_samples = 256
         nb_samples = np.max([nb_samples, len_buffer])
         for gg in np.random.randint(0, len_buffer, nb_samples):
             for hh in range(num_layers):
@@ -264,29 +264,30 @@ class PruneableAgent():
 if __name__ == "__main__":
 
     min_generations = 100
-    epds = 4
+    epds = 8
     save_every = 50
     hid_dim = 32
 
-    env_names = ["InvertedPendulumSwingupBulletEnv-v0",\
+    env_names = [
+            "ReacherBulletEnv-v0",\
             "HalfCheetahBulletEnv-v0",\
-            "ReacherBulletEnv-v0"]
+            "InvertedPendulumSwingupBulletEnv-v0"]
 
     pop_size = {"InvertedPendulumSwingupBulletEnv-v0": 128,\
-            "HalfCheetachBulletEnv-v0": 256,\
+            "HalfCheetahBulletEnv-v0": 256,\
             "ReacherBulletEnv-v0": 128}
 
     thresh_performance = {"InvertedPendulumSwingupBulletEnv-v0": 850,\
-            "HalfCheetachBulletEnv": 3000,\
+            "HalfCheetahBulletEnv-v0": 3000,\
             "ReacherBulletEnv-v0": 200}
     max_generation = {"InvertedPendulumSwingupBulletEnv-v0": 1024,\
-            "HalfCheetachBulletEnv": 1024,\
+            "HalfCheetahBulletEnv-v0": 1024,\
             "ReacherBulletEnv-v0": 1024}
 
     res_dir = os.listdir("./results/")
     model_dir = os.listdir("./models/")
 
-    exp_dir = "prune_mk2_16x16_exp000"
+    exp_dir = "prune_mk2_32_exp001"
     exp_time = str(int(time.time()))[-7:]
     if exp_dir not in res_dir:
         os.mkdir("./results/"+exp_dir)

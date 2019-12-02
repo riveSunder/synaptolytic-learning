@@ -210,30 +210,36 @@ class PruneableAgent():
 if __name__ == "__main__":
 
     min_generations = 100
-    epds = 4
+    epds = 8
     save_every = 50
     hid_dim = 32
 
-    
-    env_names = ["InvertedPendulumSwingupBulletEnv-v0",\
-            "HalfCheetahBulletEnv-v0",\
-            "ReacherBulletEnv-v0"]
+    env_names = [\
+            "InvertedPendulumBulletEnv-v0",\
+            "InvertedPendulumSwingupBulletEnv-v0"]
+#            "ReacherBulletEnv-v0",\
+#            "HalfCheetahBulletEnv-v0"]
 
-    pop_size = {"InvertedPendulumSwingupBulletEnv-v0": 128,\
-            "HalfCheetachBulletEnv-v0": 256,\
+    pop_size = {\
+            "InvertedPendulumBulletEnv-v0": 128,\
+            "InvertedPendulumSwingupBulletEnv-v0": 256,\
+            "HalfCheetahBulletEnv-v0": 256,\
             "ReacherBulletEnv-v0": 128}
 
-    thresh_performance = {"InvertedPendulumSwingupBulletEnv-v0": 850,\
-            "HalfCheetachBulletEnv": 3000,\
+    thresh_performance = {\
+            "InvertedPendulumBulletEnv-v0": 999.5,\
+            "InvertedPendulumSwingupBulletEnv-v0": 880,\
+            "HalfCheetahBulletEnv-v0": 3000,\
             "ReacherBulletEnv-v0": 200}
-    max_generation = {"InvertedPendulumSwingupBulletEnv-v0": 1024,\
-            "HalfCheetachBulletEnv": 1024,\
+    max_generation = {\
+            "InvertedPendulumBulletEnv-v0": 1024,\
+            "InvertedPendulumSwingupBulletEnv-v0": 1024,\
+            "HalfCheetahBulletEnv-v0": 1024,\
             "ReacherBulletEnv-v0": 1024}
-
     res_dir = os.listdir("./results/")
     model_dir = os.listdir("./models/")
 
-    exp_dir = "prune_mk1_16x16_exp000"
+    exp_dir = "prune_mk1_32_exp003"
     exp_time = str(int(time.time()))[-7:]
     if exp_dir not in res_dir:
         os.mkdir("./results/"+exp_dir)
@@ -270,7 +276,7 @@ if __name__ == "__main__":
                     "elite_agent_sum": []}
 
             exp_id = "exp_" + exp_time + "env_" +\
-                    env_name[:6]+env_name[-8:-3] + "_s" + str(my_seed)
+                    env_name + "_s" + str(my_seed)
 
             env = gym.make(env_name)
 
@@ -330,19 +336,6 @@ if __name__ == "__main__":
                 results["mean_agent_sum"].append(mean_connections)
                 results["std_agent_sum"].append(std_connections)
 
-                if generation % save_every == 0:
-                    np.save("./results/{}/prunemk1_{}.npy"\
-                            .format(exp_dir, exp_id),results)
-                    np.save("./models/{}/prunemk1_elite_pop_{}_gen{}.npy"\
-                            .format(exp_dir,exp_id, generation),agent.elite_pop)
-
-                if results["elite_mean_fit"][-1] >= \
-                        thresh_performance[env_name]\
-                        and\
-                        generation >= min_generations:
-
-                    print("environment solved, ending training")
-                    break
                 print("mk1 gen {} elapsed {:.3f} mut rate {:.3f}, mean/max/min fitness: {:.3f}/{:.3f}/{:.3f}, elite {:.3f}/{:.3f}/{:.3f}, {:.3f}/{:.3f}"\
                         .format(generation, results["wall_time"][-1],\
                         results["prune_prob"][-1],\
@@ -353,3 +346,17 @@ if __name__ == "__main__":
                         results["elite_max_fit"][-1],\
                         results["elite_min_fit"][-1],\
                         mean_connections, std_connections))
+
+                if generation % save_every == 0:
+                    np.save("./results/{}/prunemk1_{}.npy"\
+                            .format(exp_dir, exp_id),results)
+                    np.save("./models/{}/prunemk1_elite_pop_{}_gen{}.npy"\
+                            .format(exp_dir,exp_id, generation),agent.elite_pop)
+
+                    if results["elite_max_fit"][-1] >= \
+                            thresh_performance[env_name]\
+                            and\
+                            generation >= min_generations:
+
+                        print("environment solved, ending training")
+                        break
