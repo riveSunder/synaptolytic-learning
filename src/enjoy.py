@@ -24,19 +24,26 @@ import skimage.io
 
 if __name__ == "__main__":
 
-    model_fn = "models/cm_prune_16h16h/prunemk2_elite_pop_exp_991477env_InvertetEnv_s2.npy"
-    model_fn = "models/prune_mk1_32_exp003/prunemk1_elite_pop_exp_5191527env_InvertedPendulumSwingupBulletEnv-v0_s2_gen100.npy" 
-    model_fn = "models/prune_mk2_5_32_exp003/prunemk2_elite_pop_exp_5191522env_InvertedPendulumSwingupBulletEnv-v0_s2_gen100.npy" 
-    model_fn = "models/prune_mk1_32_exp003/prunemk1_elite_pop_exp_5191527env_InvertedPendulumBulletSwingupEnv-v0_s2_gen100.npy"
+    #model_fn = "models/prune_mk1_32_exp003/prunemk1_elite_pop_exp_5191527env_InvertedPendulumSwingupBulletEnv-v0_s2_gen100.npy"
     #model_fn = "models/prune_mk2_5_32_exp003/prunemk2_elite_pop_exp_5241643env_InvertedPendulumSwingupBulletEnv-v0_s2_gen100.npy"
-    env_name = "InvertedPendulumSwingupBulletEnv-v0"
+    #model_fn = "models/cma_32_exp003/cma_elite_pop_exp_5287031env_InvertedPendulumSwingupBulletEnv-v0_s0_gen100.npy"
+    #env_name = "InvertedPendulumSwingupBulletEnv-v0"
+
+
+    #model_fn = "models/prune_mk1_32_exp003/prunemk1_elite_pop_exp_5191527env_InvertedPendulumBulletEnv-v0_s2_gen100.npy"
+    #model_fn = "models/prune_mk2_5_32_exp003/prunemk2_elite_pop_exp_5241643env_InvertedPendulumBulletEnv-v0_s2_gen100.npy"
+    model_fn = "models/cma_32_exp003/cma_elite_pop_exp_5287031env_InvertedPendulumBulletEnv-v0_s0_gen100.npy"
+
+    env_name = "InvertedPendulumBulletEnv-v0"
+    epds = 100
 
     save_renders = True
     env = gym.make(env_name)
     obs_dim = env.observation_space.shape[0]
 
     if "Bullet" in env_name:
-        env.render()
+        pass
+        #env.render()
 
     try:
         act_dim = env.action_space.n
@@ -54,10 +61,10 @@ if __name__ == "__main__":
     for agent_idx in range(population_size):
         agent.pop[agent_idx] = temp_agent[agent_idx]
 
-    population_size = 4 
+    population_size = 1 
 
-    epds = 1
     count = 0
+    reward_list = []
     for agent_idx in range(population_size):
         for epd in range(epds):
             done = False
@@ -75,5 +82,10 @@ if __name__ == "__main__":
                 if save_renders:
                     frame = env.render(mode="rgb_array")
                     skimage.io.imsave("./assets/frames/{}frame{}.png".format(env_name[:-3], count), frame)
+            reward_list.append(total_reward)
             print("agent {}, Episode {}, episode reward: {}".format(agent_idx, epd, total_reward))
+
+    print("agent {} performance:".format(model_fn))
+    print("mean {:.4e} +/- {:.4e} s.d, max/min {:.4e}/{:.4e}".format(np.mean(reward_list),np.std(reward_list), np.max(reward_list), np.min(reward_list )))
+
     env.close()
