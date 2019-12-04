@@ -210,13 +210,14 @@ class PruneableAgent():
 if __name__ == "__main__":
 
     min_generations = 100
-    epds = 8
+    epds = 3
     save_every = 50
-    hid_dim = 32
+
+    hid_dim = 64
 
     env_names = [\
-            "InvertedPendulumBulletEnv-v0",\
-            "InvertedPendulumSwingupBulletEnv-v0"]
+             "Walker2DBulletEnv-v0"]
+#            "InvertedPendulumSwingupBulletEnv-v0"]
 #            "ReacherBulletEnv-v0",\
 #            "HalfCheetahBulletEnv-v0"]
 
@@ -224,22 +225,26 @@ if __name__ == "__main__":
             "InvertedPendulumBulletEnv-v0": 128,\
             "InvertedPendulumSwingupBulletEnv-v0": 256,\
             "HalfCheetahBulletEnv-v0": 256,\
-            "ReacherBulletEnv-v0": 128}
+            "ReacherBulletEnv-v0": 128,\
+            "Walker2DBulletEnv-v0": 128}
 
     thresh_performance = {\
             "InvertedPendulumBulletEnv-v0": 999.5,\
             "InvertedPendulumSwingupBulletEnv-v0": 880,\
             "HalfCheetahBulletEnv-v0": 3000,\
-            "ReacherBulletEnv-v0": 200}
+            "ReacherBulletEnv-v0": 200,\
+            "Walker2DBulletEnv-v0": 3000}
     max_generation = {\
             "InvertedPendulumBulletEnv-v0": 1024,\
             "InvertedPendulumSwingupBulletEnv-v0": 1024,\
             "HalfCheetahBulletEnv-v0": 1024,\
-            "ReacherBulletEnv-v0": 1024}
+            "ReacherBulletEnv-v0": 1024,\
+            "Walker2DBulletEnv-v0": 1024}
+
     res_dir = os.listdir("./results/")
     model_dir = os.listdir("./models/")
 
-    exp_dir = "prune_mk1_32_exp003"
+    exp_dir = "prune_mk1_32_exp004"
     exp_time = str(int(time.time()))[-7:]
     if exp_dir not in res_dir:
         os.mkdir("./results/"+exp_dir)
@@ -247,7 +252,7 @@ if __name__ == "__main__":
         os.mkdir("./models/"+exp_dir)
 
     render = False
-    for my_seed in [2,1,0]:
+    for my_seed in [0,1,2]:
         np.random.seed(my_seed)
         for env_name in env_names:
             try:
@@ -290,7 +295,7 @@ if __name__ == "__main__":
                 discrete = False
 
             population_size = pop_size[env_name]
-            agent = PruneableAgent(obs_dim, act_dim, hid=[hid_dim], \
+            agent = PruneableAgent(obs_dim, act_dim, hid=[hid_dim, hid_dim], \
                     pop_size=population_size, discrete=discrete)
 
             total_total_steps = 0

@@ -207,13 +207,13 @@ class CMAAgent():
 if __name__ == "__main__":
 
     min_generations = 100
-    epds = 8
+    epds = 3
     save_every = 50
-    hid_dim = 32
+    hid_dim = 64
 
     env_names = [\
-            "InvertedPendulumBulletEnv-v0",\
-            "InvertedPendulumSwingupBulletEnv-v0"]
+             "Walker2DBulletEnv-v0"]
+#            "InvertedPendulumSwingupBulletEnv-v0"]
 #            "ReacherBulletEnv-v0",\
 #            "HalfCheetahBulletEnv-v0"]
 
@@ -221,22 +221,26 @@ if __name__ == "__main__":
             "InvertedPendulumBulletEnv-v0": 128,\
             "InvertedPendulumSwingupBulletEnv-v0": 256,\
             "HalfCheetahBulletEnv-v0": 256,\
-            "ReacherBulletEnv-v0": 128}
+            "ReacherBulletEnv-v0": 128,\
+            "Walker2DBulletEnv-v0": 128}
 
     thresh_performance = {\
             "InvertedPendulumBulletEnv-v0": 999.5,\
             "InvertedPendulumSwingupBulletEnv-v0": 880,\
             "HalfCheetahBulletEnv-v0": 3000,\
-            "ReacherBulletEnv-v0": 200}
+            "ReacherBulletEnv-v0": 200,\
+            "Walker2DBulletEnv-v0": 3000}
     max_generation = {\
             "InvertedPendulumBulletEnv-v0": 1024,\
             "InvertedPendulumSwingupBulletEnv-v0": 1024,\
             "HalfCheetahBulletEnv-v0": 1024,\
-            "ReacherBulletEnv-v0": 1024}
+            "ReacherBulletEnv-v0": 1024,\
+            "Walker2DBulletEnv-v0": 1024}
+
     res_dir = os.listdir("./results/")
     model_dir = os.listdir("./models/")
 
-    exp_dir = "cma_32_exp003"
+    exp_dir = "cma_32_exp004"
     exp_time = str(int(time.time()))[-7:]
     if exp_dir not in res_dir:
         os.mkdir("./results/"+exp_dir)
