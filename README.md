@@ -1,7 +1,9 @@
-<img src="assets/flyeye.gif">
 
 # Synaptolysis: Pruning as a Learning Mechanism
- 
+
+<img src="assets/champion_lineup.png">
+<p align="center">examples of simple policy networks learned for the `InvertedPendulumSwingup` environment</p>
+
 ## Getting Started
 
 This project is a work in progress, and I encourage you to play with what we have so far and see what you come up with. 
@@ -43,6 +45,7 @@ python src/enjoy.py -m models/prune_mk1_32_exp003/prunemk1_5191527InvertedPendul
 # or
 python src/enjoy.py --env_name InvertedPendulumSwingupBulletEnv-v0 --model models/cma_32_exp003/cma_5287031InvertedPendulumSwingupBulletEnv-v0_s2_gen100.npy
 ```
+<img src="assets/flyeye.gif">
+
 <img src="assets/pruning_mk1_swingup_s2.png">
-<img src="assets/champion_lineup.png">
-<p align="center">examples of simple policy networks learned for the `InvertedPendulumSwingup` environment</p>
+
