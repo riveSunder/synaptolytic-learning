@@ -1,7 +1,8 @@
 <img src="assets/flyeye.gif">
+
 # Synaptolysis: Pruning as a Learning Mechanism
  
-# Play Around
+## Getting Started
 
 This project is a work in progress, and I encourage you to play with what we have so far and see what you come up with. 
 
@@ -31,7 +32,9 @@ to
 
 For a little more room. Even with the modified environment I notice that the agents still tend to learn that they can use the stops to their advantage in swinging up the balance pole. 
 
-# Watch a trained agent swing a pole around
+## Watch a trained agent swing a pole around
+
+<img src="assets/swingup_blooper_mk2_agent3.gif">
 
 ```
 python src/enjoy.py --env_name InvertedPendulumSwingupBulletEnv-v0 --model models/prune_mk2_5_32_exp003/prunemk2_5241643InvertedPendulumSwingupBulletEnv-v0_s2_gen100.npy_
