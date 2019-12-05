@@ -39,9 +39,10 @@ class PruneableAgent():
         self.init_pop()
         self.mutate_pop(rate=0.25)
 
-    def get_action(self, obs, agent_idx=0, scaler=1.0):
+    def get_action(self, obs, agent_idx=0, scaler=1.0, enjoy=False):
 
         x = obs        
+        if enjoy: self.hid = [hid.shape[1] for hid in self.pop[agent_idx]][:-1]
         for ii in range(len(self.hid)):
             x = np.matmul(x, scaler*self.pop[agent_idx][ii])
             x = np.tanh(x)
