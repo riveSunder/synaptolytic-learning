@@ -34,9 +34,9 @@ to
 
 For a little more room. Even with the modified environment I notice that the agents still tend to learn that they can use the stops to their advantage in swinging up the balance pole. 
 
+
 ## Watch a trained agent swing a pole around
 
-<img src="assets/swingup_blooper_mk2_agent3.gif">
 
 ```
 python src/enjoy.py --env_name InvertedPendulumSwingupBulletEnv-v0 --model models/prune_mk2_5_32_exp003/prunemk2_5241643InvertedPendulumSwingupBulletEnv-v0_s2_gen100.npy_
@@ -47,5 +47,5 @@ python src/enjoy.py --env_name InvertedPendulumSwingupBulletEnv-v0 --model model
 ```
 <img src="assets/flyeye.gif">
 
-<img src="assets/pruning_mk1_swingup_s2.png">
+<img src="assets/swingup_blooper_mk2_agent3.gif">
 
