@@ -5,9 +5,6 @@ import copy
 import time
 import os
 
-from custom_envs.cartpole_swingup import CartPoleSwingUpEnv
-from gym.envs.registration import register
-
 import pybullet
 import pybullet_envs
 
@@ -219,11 +216,12 @@ if __name__ == "__main__":
 
     population_size = 100
     hid_dim = 64
-    epds = 1
+    epds = 4
     env_name = "InvertedPendulumSwingupBulletEnv-v0"
     #env_name = "AntBulletEnv-v0"
+    env_name = "Walker2DBulletEnv-v0"
+    #env_name = "BipedalWalker-v2"
 
-    env_name = "CartPole-v1"
     env = gym.make(env_name)
 
     obs_dim = env.observation_space.shape[0]
@@ -252,7 +250,7 @@ if __name__ == "__main__":
             connections = np.sum([np.sum(layer) for \
                     layer in agent.population[0]])
             
-            print(time.time()-t1,generation, np.mean(fitness), np.max(fitness), np.min(fitness), connections)
+            print("{:.2f}".format(time.time()-t1),generation, np.mean(fitness), np.max(fitness), np.min(fitness), connections)
     except KeyboardInterrupt:        
         pass
 

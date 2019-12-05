@@ -5,8 +5,6 @@ import copy
 import time
 import os
 
-from custom_envs.cartpole_swingup import CartPoleSwingUpEnv
-from gym.envs.registration import register
 import pybullet
 import pybullet_envs
 from pybullet_envs.bullet import MinitaurBulletEnv

@@ -5,18 +5,8 @@ import copy
 import time
 import os
 
-from custom_envs.cartpole_swingup import CartPoleSwingUpEnv
-from gym.envs.registration import register
-
 import pybullet
 import pybullet_envs
-
-register(
-    id='CartPoleSwingUp-v0',
-    entry_point='custom_envs.cartpole_swingup:CartPoleSwingUpEnv',
-    max_episode_steps=200,
-    reward_threshold=25.0,
-    )
 
 def sigmoid(x):
     return np.exp(x) / (1 + np.exp(x))
@@ -266,7 +256,7 @@ if __name__ == "__main__":
     min_generations = 100
     epds = 8
     save_every = 50
-    hid_dim = 32
+    hid_dim = 64
 
     env_names = [
             "ReacherBulletEnv-v0",\
@@ -339,7 +329,7 @@ if __name__ == "__main__":
                 discrete = False
 
             population_size = pop_size[env_name]
-            agent = PruneableAgent(obs_dim, act_dim, hid=[hid_dim], \
+            agent = PruneableAgent(obs_dim, act_dim, hid=[hid_dim, hid_dim], \
                     pop_size=population_size, discrete=discrete)
 
             total_total_steps = 0
