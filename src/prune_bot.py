@@ -5,18 +5,9 @@ import copy
 import time
 import os
 
-from custom_envs.cartpole_swingup import CartPoleSwingUpEnv
-from gym.envs.registration import register
-
 import pybullet
 import pybullet_envs
 
-register(
-    id='CartPoleSwingUp-v0',
-    entry_point='custom_envs.cartpole_swingup:CartPoleSwingUpEnv',
-    max_episode_steps=200,
-    reward_threshold=25.0,
-    )
 
 def sigmoid(x):
     return np.exp(x) / (1 + np.exp(x))
@@ -135,15 +126,10 @@ class PruneableAgent():
                     format(np.mean(sorted_fitness[:keep]), self.best_gen))
             self.best_gen = np.mean(sorted_fitness[:keep])
 
-            self.elite_pop = []
-            self.elite_pop.append(self.elite_agent)
-            for oo in range(keep):
-                self.elite_pop.append(self.pop[sort_indices[oo]])
-        else:
-            # decay recollection of greatest generation 
-            pass
-            # only the best rep gets in
-        #always keep the fittest individual
+        self.elite_pop = []
+        self.elite_pop.append(self.elite_agent)
+        for oo in range(keep):
+            self.elite_pop.append(self.pop[sort_indices[oo]])
 
         self.pop = []
         num_elite = len(self.elite_pop)
