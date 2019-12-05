@@ -50,13 +50,7 @@ class Hebbian():
             x = np.tanh(x)
 
             # compute Hebbian memory
-            hebbian_shape = self.hebbian[agent_idx][ii].shape
-            for mm in range(hebbian_shape[0]):
-                for nn in range(hebbian_shape[1]):
-
-                    self.hebbian[agent_idx][ii][mm,nn] = self.alpha_h\
-                            * self.hebbian[agent_idx][ii][mm,nn] \
-                            + (1-self.alpha_h) * (x0[mm] * x[nn])
+            self.hebbian[agent_idx][ii] = np.matmul(x0[np.newaxis,:].T, x[np.newaxis,:])
 
         if self.discrete:
             x0 = x
@@ -73,13 +67,8 @@ class Hebbian():
             act = np.tanh(x)
 
         # compute Hebbian memory
-        hebbian_shape = self.hebbian[agent_idx][-1].shape
-        for mm in range(hebbian_shape[0]):
-            for nn in range(hebbian_shape[1]):
+        self.hebbian[agent_idx][-1] = np.matmul(x0[np.newaxis,:].T, x[np.newaxis,:])
 
-                self.hebbian[agent_idx][-1][mm,nn] = self.alpha_h\
-                        * self.hebbian[agent_idx][-1][mm,nn] \
-                        + (1-self.alpha_h) * (x0[mm] * x[nn])
         return act
 
     def hebbian_prune(self, prune_rate=0.025):
@@ -228,12 +217,13 @@ class Hebbian():
 
 if __name__ == "__main__":
 
-    population_size = 128
+    population_size = 100
     hid_dim = 64
-    epds = 4
+    epds = 1
     env_name = "InvertedPendulumSwingupBulletEnv-v0"
-    env_name = "AntBulletEnv-v0"
+    #env_name = "AntBulletEnv-v0"
 
+    env_name = "CartPole-v1"
     env = gym.make(env_name)
 
     obs_dim = env.observation_space.shape[0]
@@ -248,9 +238,10 @@ if __name__ == "__main__":
     agent = Hebbian(obs_dim, act_dim, hid=[hid_dim, hid_dim], \
             pop_size=population_size, discrete=discrete)
     try:
-
+        t0 = time.time()
         total_steps = 0
         for generation in range(2000):
+            t1 = time.time()
             fitness, steps = agent.get_fitness(env, epds=epds, values=[1.0], render=False)
             total_steps += steps
 
@@ -261,7 +252,7 @@ if __name__ == "__main__":
             connections = np.sum([np.sum(layer) for \
                     layer in agent.population[0]])
             
-            print(generation, np.mean(fitness), np.max(fitness), np.min(fitness), connections)
+            print(time.time()-t1,generation, np.mean(fitness), np.max(fitness), np.min(fitness), connections)
     except KeyboardInterrupt:        
         pass
 
