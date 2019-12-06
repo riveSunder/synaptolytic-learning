@@ -33,14 +33,15 @@ class CMAAgent():
     def get_action(self, obs, agent_idx):
         x = obs        
 
-        x = np.matmul(x, self.population[agent_idx][0])
-        x = np.tanh(x)
+        for ii in range(len(self.hid_dim)):
+            x = np.matmul(x, self.population[agent_idx][ii])
+            x = np.tanh(x)
 
         if self.discrete:
-            x = sigmoid(self.by + np.matmul(x, self.population[agent_idx][-1]))
+            x = sigmoid( np.matmul(x, self.population[agent_idx][-1]))
             #x = np.where(x > 0.5, 1, 0) 
         else:
-            x = self.by + np.matmul(x, self.population[agent_idx][-1])
+            x =  np.matmul(x, self.population[agent_idx][-1])
 
         if self.discrete:
             x = softmax(x)
@@ -112,41 +113,42 @@ class CMAAgent():
             for oo in range(keep):
                 self.elite_pop.append(self.population[sort_indices[oo]])
 
-        self.population = []
         num_elite = len(self.elite_pop)
 
         # update parameters
         step_size = 1.0
         
-        for hh in range(len(self.layer_dist)-1):            
-            if hh == 0:
-                i_range = self.obs_dim * self.hid_dim[0]
-                sum_layer = np.zeros( self.obs_dim * self.hid_dim[0])
-                sum_cov = np.zeros(( self.obs_dim * self.hid_dim[0] ,\
-                    self.obs_dim * self.hid_dim[-1] ))
-            elif hh == (len(self.hid_dim)):
-                i_range = self.hid_dim[-1] * self.act_dim
-                sum_layer = np.zeros( self.act_dim * self.hid_dim[-1] )
-                sum_cov = np.zeros(( self.act_dim * self.hid_dim[-1] ,\
-                    self.act_dim * self.hid_dim[-1] ))
+        for gg in range(self.population_size):
+            for hh in range(len(self.hid_dim)+1):            
+                if hh == 0:
+                    temp_params = self.population[gg][hh].ravel()[np.newaxis,:]
+                else:
+                    temp_params = np.append(temp_params, self.population[gg][hh].ravel()\
+                        [np.newaxis,:], axis=1 )
+
+            if gg == 0:
+                params = temp_params
             else:
-                i_range = self.hid_dim[hh] * self.hid_dim[hh-1]
-                sum_layer = np.zeros( self.hid_dim[hh] * self.hid_dim[hh-1] )
-                sum_cov = np.zeros(( self.hid_dim[hh]  * self.hid_dim[hh-1] ,\
-                    self.hid_dim[hh] * self.hid_dim[hh-1]) )
-            for gg in range(num_elite):
-                
+                params = np.append( params, temp_params, axis=0 )
 
-                sum_layer += self.elite_pop[gg][hh].ravel()
-                
-                temp_x0 = self.elite_pop[gg][hh].ravel() - self.layer_dist[hh][0]
-                sum_cov += np.matmul(temp_x0[np.newaxis,:].T,\
-                        temp_x0[np.newaxis,:])
+        for gg in range(num_elite):
+            for hh in range(len(self.hid_dim)+1):            
+                if hh == 0:
+                    temp_params = self.population[gg][hh].ravel()[np.newaxis,:]
+                else:
+                    temp_params = np.append( temp_params, self.population[gg][hh].ravel()\
+                        [np.newaxis,:], axis=1 )
 
-            mean_layer = sum_layer / num_elite
-            mean_cov = sum_cov / num_elite
+            if gg == 0:
+                elite_params = temp_params
+            else:
+                elite_params = np.append( elite_params, temp_params, axis=0 )
 
-            self.layer_dist[hh] = [mean_layer, mean_cov]
+        mean_params = np.mean(params, axis=0)
+        mean_cov = np.matmul(( elite_params - self.dist[0]).T,\
+                (elite_params-self.dist[0]) )
+
+        self.dist = [mean_params, mean_cov]
 
         self.init_pop()
         self.population[-1] = self.elite_agent
@@ -155,62 +157,61 @@ class CMAAgent():
                 mean_connections, std_connections
 
     def init_dist(self):
-        self.layer_dist = []
-    
-        # input to hidden layer distribution
 
-        layer_mew = np.zeros((self.obs_dim * self.hid_dim[0]))
-        layer_cov = np.eye(self.obs_dim * self.hid_dim[0]) 
+        num_params = self.obs_dim * self.hid_dim[0]
+        num_params += int(np.sum([self.hid_dim[ii] * self.hid_dim[ii+1] \
+                for ii in range(len(self.hid_dim)-1)]))
+        num_params += self.act_dim * self.hid_dim[-1]
 
-        self.layer_dist.append([layer_mew, layer_cov])
+        if num_params >= 500:
+            print("Warning: You got a lot of params ({}), CMA will be slow"\
+                    .format(num_params))
 
-        # hidden layers distribution
-        for ii in range(len(self.hid_dim)-1):
-            layer_mew = np.zeros((self.hid_dim[ii] * self.hid_dim[ii+1]))
-            layer_cov = np.eye(self.hid_dim[ii] * self.hid_dim[ii+1])
-
-            self.layer_dist.append([layer_mew, layer_cov])
-
-        #output layer
-        layer_mew = np.zeros((self.hid_dim[-1] * self.act_dim))
-        layer_cov = np.eye(self.hid_dim[-1] * self.act_dim)
-        self.layer_dist.append([layer_mew, layer_cov])
+        dist_mean = np.zeros((num_params))
+        dist_cov = np.eye(num_params)
+        self.dist = [dist_mean, dist_cov]
 
     def init_pop(self):
+
         self.population = []
 
         for hh in range(self.population_size):
+            params = np.random.multivariate_normal(self.dist[0], self.dist[1])
+
             layers = []
-            layer = np.random.multivariate_normal(self.layer_dist[0][0], \
-                    self.layer_dist[0][1]).reshape(self.obs_dim, self.hid_dim[0])
+            for layer_idx in range(len(self.hid_dim)+1):
+                
+                if layer_idx == 0:
+                    start_idx = 0
+                    dim_x = self.obs_dim 
+                    dim_y = self.hid_dim[0]
+                elif layer_idx == len(self.hid_dim):
+                    start_idx = end_idx
+                    dim_x = self.hid_dim[-1]
+                    dim_y = self.act_dim
+                else:
+                    start_idx = end_idx
+                    dim_x = self.hid_dim[layer_idx-1]
+                    dim_y = self.hid_dim[layer_idx]
+                end_idx = start_idx+ dim_x * dim_y
 
-            layers.append(layer)
-
-            for ii in range(1,len(self.hid_dim)):
-                layer = np.random.multivariate_normal(self.layer_dist[ii][0], \
-                        self.layer_dist[ii][1]).reshape(self.hid_dim[ii-1], \
-                        self.hid_dim[ii])
-
+                layer = params[start_idx:end_idx].reshape(dim_x,dim_y)
+                    
                 layers.append(layer)
 
-
-            layer = np.random.multivariate_normal(self.layer_dist[-1][0], \
-                    self.layer_dist[-1][1]).reshape(self.hid_dim[-1], self.act_dim)
-
-            layers.append(layer)
             self.population.append(layers)
-
 
 
 if __name__ == "__main__":
 
     min_generations = 100
-    epds = 8
+    epds = 4
     save_every = 50
-    hid_dim = [4,4]
+    hid_dim = [64]
 
     env_names = [\
-            "InvertedDoublePendulumBulletEnv-v0"]
+            "InvertedPendulumSwingupBulletEnv-v0"]
+#            "InvertedDoublePendulumBulletEnv-v0"]
 #             "Walker2DBulletEnv-v0"]
 #            "InvertedPendulumSwingupBulletEnv-v0"]
 #            "ReacherBulletEnv-v0",\
@@ -296,6 +297,7 @@ if __name__ == "__main__":
             for generation in range(max_generation[env_name]):
 
 
+                t1 = time.time()
                 fitness, total_steps = agent.get_fitness(env, render=render,\
                         epds=epds)
                 total_total_steps += total_steps
@@ -326,8 +328,9 @@ if __name__ == "__main__":
                 results["mean_agent_sum"].append(mean_connections)
                 results["std_agent_sum"].append(std_connections)
 
-                print("gen {} elapsed {:.3f}, mean/max/min fitness: {:.3f}/{:.3f}/{:.3f} elite mean/max/min {:.3f}/{:.3f}/{:.3f}"\
-                        .format(generation, results["wall_time"][-1],\
+                print("gen {} elapsed {:.1f}/{:.1f}, mean/max/min fitness: {:.3f}/{:.3f}/{:.3f} elite mean/max/min {:.3f}/{:.3f}/{:.3f}"\
+                        .format(generation, time.time()-t1,\
+                        results["wall_time"][-1],\
                         results["pop_mean_fit"][-1],\
                         results["pop_max_fit"][-1],\
                         results["pop_min_fit"][-1],\
