@@ -14,7 +14,7 @@ from mpi4py import MPI
 comm = MPI.COMM_WORLD
 
 #rank = comm.Get_rank()
-#size = commm.Get_size()
+#size = comm.Get_size()
 
 class Agent():
     def __init__(self, obs_dim, act_dim, seed=0):
