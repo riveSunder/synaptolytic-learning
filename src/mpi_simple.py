@@ -55,10 +55,33 @@ class Agent():
 def mantle():
     print("this is the mantle process")
 
+    global nWorker
+    
+    for aa in range(10):
+        data = [np.random.randn(4,32)] * 3
+        for worker in range(1,nWorker):
+            comm.send(data, worker)
+
+    data = 0
+    for worker in range(1,nWorker):
+        comm.send(data, worker)
+
+
 def arm():
     print("this is an arm process") 
+    
+    while True:
 
+        agent = comm.recv(source=0)
+
+        len_layer = len(agent) if agent is not 0 else 0
+        print("number of layers in agent is {}. Also I am worker {}".format(len_layer,rank))
+        if len_layer == 0:
+           print("worker #{} shutting down".format(rank))
+           break
+            
 def mpi_fork(n):
+  env_name = "InvertedPendulumSwingupBulletEnv-v0"
   """Re-launches the current script with workers
   Returns "parent" for original parent, "child" for MPI children
   (from https://github.com/garymcintire/mpi_util/)
