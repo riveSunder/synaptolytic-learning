@@ -9,14 +9,6 @@ import pybullet
 import pybullet_envs
 from pybullet_envs.bullet import MinitaurBulletEnv
 
-#register(
-#    id='CartPoleSwingUp-v0',
-#    entry_point='custom_envs.cartpole_swingup:CartPoleSwingUpEnv',
-#    max_episode_steps=200,
-#    reward_threshold=25.0,
-#    )
-
-
 class CMAAgent():
     def __init__(self, obs_dim, act_dim, population_size, \
             seed=0, hid_dim=16, discrete=False):
@@ -41,14 +33,14 @@ class CMAAgent():
     def get_action(self, obs, agent_idx):
         x = obs        
 
-        x = np.matmul(x, self.pop[agent_idx][0])
+        x = np.matmul(x, self.population[agent_idx][0])
         x = np.tanh(x)
 
         if self.discrete:
-            x = sigmoid(self.by + np.matmul(x, self.pop[agent_idx][-1]))
+            x = sigmoid(self.by + np.matmul(x, self.population[agent_idx][-1]))
             #x = np.where(x > 0.5, 1, 0) 
         else:
-            x = self.by + np.matmul(x, self.pop[agent_idx][-1])
+            x = self.by + np.matmul(x, self.population[agent_idx][-1])
 
         if self.discrete:
             x = softmax(x)
@@ -64,7 +56,7 @@ class CMAAgent():
         complexity = []
         total_steps = 0
 
-        for agent_idx in range(len(self.pop)):
+        for agent_idx in range(len(self.population)):
             #obs = flatten_obs(env.reset())
             accumulated_reward = 0.0
             for epd in range(epds):
@@ -92,12 +84,12 @@ class CMAAgent():
         sort_indices.reverse()
 
         sorted_fitness = np.array(fitness)[sort_indices]
-        #sorted_pop = self.pop[sort_indices]
+        #sorted_pop = self.population[sort_indices]
 
         connections = []
         for pop_idx in range(self.population_size):
             connections.append(np.sum([np.sum(np.abs(layer)) \
-                    for layer in self.pop[pop_idx]]))
+                    for layer in self.population[pop_idx]]))
         mean_connections = np.mean(connections)
         std_connections = np.std(connections)
 
@@ -106,7 +98,7 @@ class CMAAgent():
             # keep best agent
             print("new best elite agent: {} v {}".\
                     format(sorted_fitness[0], self.best_agent))
-            self.elite_agent = self.pop[sort_indices[0]]
+            self.elite_agent = self.population[sort_indices[0]]
             self.best_agent = sorted_fitness[0]
 
         if np.mean(sorted_fitness[:keep]) > -float("Inf"): # self.best_gen:
@@ -118,52 +110,50 @@ class CMAAgent():
             self.elite_pop = []
             self.elite_pop.append(self.elite_agent)
             for oo in range(keep):
-                self.elite_pop.append(self.pop[sort_indices[oo]])
+                self.elite_pop.append(self.population[sort_indices[oo]])
 
-        self.pop = []
+        self.population = []
         num_elite = len(self.elite_pop)
 
         # update parameters
         step_size = 1.0
 
-        sum_layer = np.zeros(self.obs_dim*self.hid_dim)
-        sum_cov = np.zeros((self.obs_dim*self.hid_dim, self.obs_dim*self.hid_dim))
         for gg in range(num_elite):
-            sum_layer += self.elite_pop[gg][0].ravel()
 
-            for ii in range(self.obs_dim * self.hid_dim):
-                for jj in range(self.obs_dim * self.hid_dim):
-                    sum_cov[ii,jj] +=\
-                            (self.elite_pop[gg][0].ravel()[ii]\
-                            - self.layer_dist[0][0][ii]) \
-                            * (self.elite_pop[gg][0].ravel()[jj]\
-                            - self.layer_dist[0][0][jj])
+            for hh in range(len(self.layer_dist)-1):            
 
-        mean_layer = sum_layer / num_elite
-        mean_cov = sum_cov / num_elite
+                if hh == 0:
+                    i_range = self.obs_dim * self.hid_dim[0]
+                    sum_layer = np.zeros( self.obs_dim * self.hid_dim[0])
+                    sum_cov = np.zeros(( self.obs_dim * self.hid_dim[0] ,\
+                        self.obs_dim * self.hid_dim[-1] ))
+                elif hh == (len(self.hid_dim)):
+                    i_range = self.hid_dim[-1] * self.act_dim
+                    sum_layer = np.zeros( self.act_dim * self.hid_dim[-1] )
+                    sum_cov = np.zeros(( self.act_dim * self.hid_dim[-1] ,\
+                        self.act_dim * self.hid_dim[-1] ))
+                else:
+                    i_range = self.hid_dim[hh] * self.hid_dim[hh-1]
+                    sum_layer = np.zeros( self.hid_dim[hh] * self.hid_dim[hh-1] )
+                    sum_cov = np.zeros(( self.hid_dim[hh]  * self.hid_dim[hh-1] ,\
+                        self.hid_dim[hh] * self.hid_dim[hh-1]) )
 
-        self.layer_dist[0] = [mean_layer, mean_cov]
+                sum_layer += self.elite_pop[gg][hh].ravel()
+                for ii in range(i_range):
+                    for jj in range(i_range):
+                        sum_cov[ii,jj] +=\
+                                (self.elite_pop[gg][hh].ravel()[ii]\
+                                - self.layer_dist[hh][0][ii]) \
+                                * (self.elite_pop[gg][hh].ravel()[jj]\
+                                - self.layer_dist[hh][0][jj])
 
-        sum_layer = np.zeros((self.hid_dim * self.act_dim))
-        sum_cov = np.zeros((self.act_dim*self.hid_dim, self.act_dim*self.hid_dim))
-        for gg in range(num_elite):
-            sum_layer += self.elite_pop[gg][1].ravel()
+                mean_layer = sum_layer / num_elite
+                mean_cov = sum_cov / num_elite
 
-            for ii in range(self.act_dim * self.hid_dim):
-                for jj in range(self.act_dim * self.hid_dim):
-                    sum_cov[ii,jj] +=\
-                            (self.elite_pop[gg][1].ravel()[ii]\
-                            - self.layer_dist[1][0][ii]) \
-                            * (self.elite_pop[gg][1].ravel()[jj]\
-                            - self.layer_dist[1][0][jj])
-
-        mean_layer = sum_layer / num_elite
-        mean_cov = sum_cov / num_elite
-
-        self.layer_dist[1] = [mean_layer, mean_cov]
+                self.layer_dist[hh] = [mean_layer, mean_cov]
 
         self.init_pop()
-        self.pop[-1] = self.elite_agent
+        self.population[-1] = self.elite_agent
 
         return sorted_fitness, num_elite,\
                 mean_connections, std_connections
@@ -173,32 +163,46 @@ class CMAAgent():
     
         # input to hidden layer distribution
 
-        layer_mew = np.zeros((self.obs_dim * self.hid_dim))
-        layer_cov = np.eye(self.obs_dim * self.hid_dim) 
+        layer_mew = np.zeros((self.obs_dim * self.hid_dim[0]))
+        layer_cov = np.eye(self.obs_dim * self.hid_dim[0]) 
 
         self.layer_dist.append([layer_mew, layer_cov])
 
-        # hidden layer distribution
-        layer_mew = np.zeros((self.hid_dim * self.act_dim))
-        layer_cov = np.eye(self.hid_dim * self.act_dim)
+        # hidden layers distribution
+        for ii in range(len(self.hid_dim)-1):
+            layer_mew = np.zeros((self.hid_dim[ii] * self.hid_dim[ii+1]))
+            layer_cov = np.eye(self.hid_dim[ii] * self.hid_dim[ii+1])
 
+            self.layer_dist.append([layer_mew, layer_cov])
+
+        #output layer
+        layer_mew = np.zeros((self.hid_dim[-1] * self.act_dim))
+        layer_cov = np.eye(self.hid_dim[-1] * self.act_dim)
         self.layer_dist.append([layer_mew, layer_cov])
 
     def init_pop(self):
-        self.pop = []
+        self.population = []
 
         for hh in range(self.population_size):
             layers = []
             layer = np.random.multivariate_normal(self.layer_dist[0][0], \
-                    self.layer_dist[0][1]).reshape(self.obs_dim, self.hid_dim)
+                    self.layer_dist[0][1]).reshape(self.obs_dim, self.hid_dim[0])
 
             layers.append(layer)
 
-            layer = np.random.multivariate_normal(self.layer_dist[1][0], \
-                    self.layer_dist[1][1]).reshape(self.hid_dim, self.act_dim)
+            for ii in range(1,len(self.hid_dim)):
+                layer = np.random.multivariate_normal(self.layer_dist[ii][0], \
+                        self.layer_dist[ii][1]).reshape(self.hid_dim[ii-1], \
+                        self.hid_dim[ii])
+
+                layers.append(layer)
+
+
+            layer = np.random.multivariate_normal(self.layer_dist[-1][0], \
+                    self.layer_dist[-1][1]).reshape(self.hid_dim[-1], self.act_dim)
 
             layers.append(layer)
-            self.pop.append(layers)
+            self.population.append(layers)
 
 
 
@@ -207,15 +211,17 @@ if __name__ == "__main__":
     min_generations = 100
     epds = 3
     save_every = 50
-    hid_dim = 64
+    hid_dim = [32,32]
 
     env_names = [\
-             "Walker2DBulletEnv-v0"]
+            "InvertedDoublePendulumBulletEnv-v0"]
+#             "Walker2DBulletEnv-v0"]
 #            "InvertedPendulumSwingupBulletEnv-v0"]
 #            "ReacherBulletEnv-v0",\
 #            "HalfCheetahBulletEnv-v0"]
 
     pop_size = {\
+            "InvertedDoublePendulumBulletEnv-v0": 128,\
             "InvertedPendulumBulletEnv-v0": 128,\
             "InvertedPendulumSwingupBulletEnv-v0": 256,\
             "HalfCheetahBulletEnv-v0": 256,\
@@ -223,12 +229,14 @@ if __name__ == "__main__":
             "Walker2DBulletEnv-v0": 128}
 
     thresh_performance = {\
+            "InvertedDoublePendulumBulletEnv-v0": 1999.0,\
             "InvertedPendulumBulletEnv-v0": 999.5,\
             "InvertedPendulumSwingupBulletEnv-v0": 880,\
             "HalfCheetahBulletEnv-v0": 3000,\
             "ReacherBulletEnv-v0": 200,\
             "Walker2DBulletEnv-v0": 3000}
     max_generation = {\
+            "InvertedDoublePendulumBulletEnv-v0": 1024,\
             "InvertedPendulumBulletEnv-v0": 1024,\
             "InvertedPendulumSwingupBulletEnv-v0": 1024,\
             "HalfCheetahBulletEnv-v0": 1024,\
