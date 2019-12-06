@@ -117,37 +117,36 @@ class CMAAgent():
 
         # update parameters
         step_size = 1.0
-
-        for gg in range(num_elite):
-
-            for hh in range(len(self.layer_dist)-1):            
-
-                if hh == 0:
-                    i_range = self.obs_dim * self.hid_dim[0]
-                    sum_layer = np.zeros( self.obs_dim * self.hid_dim[0])
-                    sum_cov = np.zeros(( self.obs_dim * self.hid_dim[0] ,\
-                        self.obs_dim * self.hid_dim[-1] ))
-                elif hh == (len(self.hid_dim)):
-                    i_range = self.hid_dim[-1] * self.act_dim
-                    sum_layer = np.zeros( self.act_dim * self.hid_dim[-1] )
-                    sum_cov = np.zeros(( self.act_dim * self.hid_dim[-1] ,\
-                        self.act_dim * self.hid_dim[-1] ))
-                else:
-                    i_range = self.hid_dim[hh] * self.hid_dim[hh-1]
-                    sum_layer = np.zeros( self.hid_dim[hh] * self.hid_dim[hh-1] )
-                    sum_cov = np.zeros(( self.hid_dim[hh]  * self.hid_dim[hh-1] ,\
-                        self.hid_dim[hh] * self.hid_dim[hh-1]) )
+        
+        for hh in range(len(self.layer_dist)-1):            
+            if hh == 0:
+                i_range = self.obs_dim * self.hid_dim[0]
+                sum_layer = np.zeros( self.obs_dim * self.hid_dim[0])
+                sum_cov = np.zeros(( self.obs_dim * self.hid_dim[0] ,\
+                    self.obs_dim * self.hid_dim[-1] ))
+            elif hh == (len(self.hid_dim)):
+                i_range = self.hid_dim[-1] * self.act_dim
+                sum_layer = np.zeros( self.act_dim * self.hid_dim[-1] )
+                sum_cov = np.zeros(( self.act_dim * self.hid_dim[-1] ,\
+                    self.act_dim * self.hid_dim[-1] ))
+            else:
+                i_range = self.hid_dim[hh] * self.hid_dim[hh-1]
+                sum_layer = np.zeros( self.hid_dim[hh] * self.hid_dim[hh-1] )
+                sum_cov = np.zeros(( self.hid_dim[hh]  * self.hid_dim[hh-1] ,\
+                    self.hid_dim[hh] * self.hid_dim[hh-1]) )
+            for gg in range(num_elite):
+                
 
                 sum_layer += self.elite_pop[gg][hh].ravel()
                 
                 temp_x0 = self.elite_pop[gg][hh].ravel() - self.layer_dist[hh][0]
-                sum_cov = np.matmul(temp_x0[np.newaxis,:].T,\
+                sum_cov += np.matmul(temp_x0[np.newaxis,:].T,\
                         temp_x0[np.newaxis,:])
 
-                mean_layer = sum_layer / num_elite
-                mean_cov = sum_cov / num_elite
+            mean_layer = sum_layer / num_elite
+            mean_cov = sum_cov / num_elite
 
-                self.layer_dist[hh] = [mean_layer, mean_cov]
+            self.layer_dist[hh] = [mean_layer, mean_cov]
 
         self.init_pop()
         self.population[-1] = self.elite_agent
@@ -206,9 +205,9 @@ class CMAAgent():
 if __name__ == "__main__":
 
     min_generations = 100
-    epds = 3
+    epds = 8
     save_every = 50
-    hid_dim = [32,32]
+    hid_dim = [4,4]
 
     env_names = [\
             "InvertedDoublePendulumBulletEnv-v0"]
@@ -218,7 +217,7 @@ if __name__ == "__main__":
 #            "HalfCheetahBulletEnv-v0"]
 
     pop_size = {\
-            "InvertedDoublePendulumBulletEnv-v0": 32,\
+            "InvertedDoublePendulumBulletEnv-v0": 128,\
             "InvertedPendulumBulletEnv-v0": 128,\
             "InvertedPendulumSwingupBulletEnv-v0": 256,\
             "HalfCheetahBulletEnv-v0": 256,\
