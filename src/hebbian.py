@@ -212,15 +212,29 @@ class Hebbian():
         return sorted_fitness, num_elite, \
                 mean_connections, std_connections
 
+    def mutate_pop(self, rate=0.1):
+        # mutate population by 
+        
+        for jj in range(self.pop_size):
+            for kk in range(len(self.population[jj])):
+                temp_layer = np.copy(self.population[jj][kk])
+                
+                temp_layer *= np.random.random((temp_layer.shape[0],\
+                        temp_layer.shape[1])) > rate
+
+                self.population[jj][kk] = temp_layer
+
 if __name__ == "__main__":
 
-    population_size = 100
-    hid_dim = 64
-    epds = 4
-    env_name = "InvertedPendulumSwingupBulletEnv-v0"
+    population_size = 128
+    hid_dim = [64]
+    epds = 8
+    env_name = "InvertedPendulumBulletEnv-v0"
+    #env_name = "InvertedPendulumSwingupBulletEnv-v0"
     #env_name = "AntBulletEnv-v0"
-    env_name = "Walker2DBulletEnv-v0"
+    #env_name = "Walker2DBulletEnv-v0"
     #env_name = "BipedalWalker-v2"
+    #env_name = "InvertedDoublePendulumBulletEnv-v0" 
 
     env = gym.make(env_name)
 
@@ -233,8 +247,11 @@ if __name__ == "__main__":
         act_dim = env.action_space.sample().shape[0]
         discrete = False
 
-    agent = Hebbian(obs_dim, act_dim, hid=[hid_dim, hid_dim], \
+    agent = Hebbian(obs_dim, act_dim, hid=hid_dim, \
             pop_size=population_size, discrete=discrete)
+
+    agent.mutate_pop(rate=0.05)
+
     try:
         t0 = time.time()
         total_steps = 0

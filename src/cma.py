@@ -205,12 +205,13 @@ class CMAAgent():
 if __name__ == "__main__":
 
     min_generations = 100
-    epds = 4
+    epds = 8
     save_every = 50
     hid_dim = [64]
 
     env_names = [\
-            "InvertedPendulumSwingupBulletEnv-v0"]
+            "InvertedPendulumBulletEnv-v0"]
+#            "InvertedPendulumSwingupBulletEnv-v0"]
 #            "InvertedDoublePendulumBulletEnv-v0"]
 #             "Walker2DBulletEnv-v0"]
 #            "InvertedPendulumSwingupBulletEnv-v0"]

@@ -86,7 +86,7 @@ class PruneableAgent():
                         accumulated_reward += reward
                     render = False 
 
-            complexity_penalty =  np.mean([np.mean(layer) \
+            complexity_penalty = 0* np.mean([np.mean(layer) \
                     for layer in self.pop[agent_idx]])
 
             fitness.append(accumulated_reward/(epds*len(values))-complexity_penalty)
@@ -162,7 +162,7 @@ class PruneableAgent():
         mutation_rate = np.sqrt(elite_connections / num_elite)
         mutation_rate /= mean_connections
         #mutation_rate *= 0.995
-        mutation_rate = np.max([np.min([0.125, mutation_rate]), 0.001])
+        mutation_rate = np.max([np.min([0.05, mutation_rate]), 0.001])
         return sorted_fitness, num_elite, mutation_rate, \
                 mean_connections, std_connections
 
@@ -197,18 +197,20 @@ class PruneableAgent():
 if __name__ == "__main__":
 
     min_generations = 100
-    epds = 3
+    epds = 16
     save_every = 50
 
     hid_dim = 64
 
     env_names = [\
-             "Walker2DBulletEnv-v0"]
+            "InvertedDoublePendulumBulletEnv-v0"]
+#             "Walker2DBulletEnv-v0"]
 #            "InvertedPendulumSwingupBulletEnv-v0"]
 #            "ReacherBulletEnv-v0",\
 #            "HalfCheetahBulletEnv-v0"]
 
     pop_size = {\
+            "InvertedDoublePendulumBulletEnv-v0": 128,\
             "InvertedPendulumBulletEnv-v0": 128,\
             "InvertedPendulumSwingupBulletEnv-v0": 256,\
             "HalfCheetahBulletEnv-v0": 256,\
@@ -216,12 +218,14 @@ if __name__ == "__main__":
             "Walker2DBulletEnv-v0": 128}
 
     thresh_performance = {\
+            "InvertedDoublePendulumBulletEnv-v0": 999,\
             "InvertedPendulumBulletEnv-v0": 999.5,\
             "InvertedPendulumSwingupBulletEnv-v0": 880,\
             "HalfCheetahBulletEnv-v0": 3000,\
             "ReacherBulletEnv-v0": 200,\
             "Walker2DBulletEnv-v0": 3000}
     max_generation = {\
+            "InvertedDoublePendulumBulletEnv-v0": 1024,\
             "InvertedPendulumBulletEnv-v0": 1024,\
             "InvertedPendulumSwingupBulletEnv-v0": 1024,\
             "HalfCheetahBulletEnv-v0": 1024,\
@@ -343,7 +347,8 @@ if __name__ == "__main__":
                     np.save("./results/{}/prunemk1_{}.npy"\
                             .format(exp_dir, exp_id),results)
                     np.save("./models/{}/prunemk1_elite_pop_{}_gen{}.npy"\
-                            .format(exp_dir,exp_id, generation),agent.elite_pop)
+                            .format(exp_dir,exp_id, generation), agent.elite_pop)
+
 
                     if results["elite_max_fit"][-1] >= \
                             thresh_performance[env_name]\
