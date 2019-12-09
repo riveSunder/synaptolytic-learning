@@ -5,8 +5,6 @@ import copy
 import time
 import os
 
-from custom_envs.cartpole_swingup import CartPoleSwingUpEnv
-from gym.envs.registration import register
 import pybullet
 import pybullet_envs
 from pybullet_envs.bullet import MinitaurBulletEnv
@@ -165,6 +163,7 @@ class CMAAgent():
         self.layer_dist[1] = [mean_layer, mean_cov]
 
         self.init_pop()
+        self.pop[-1] = self.elite_agent
 
         return sorted_fitness, num_elite,\
                 mean_connections, std_connections
@@ -206,28 +205,40 @@ class CMAAgent():
 if __name__ == "__main__":
 
     min_generations = 100
-    epds = 4
+    epds = 3
     save_every = 50
-    hid_dim = 16
+    hid_dim = 64
 
-    env_names = ["InvertedPendulumSwingupBulletEnv-v0",\
-            "HalfCheetahBulletEnv-v0",\
-            "ReacherBulletEnv-v0"]
+    env_names = [\
+             "Walker2DBulletEnv-v0"]
+#            "InvertedPendulumSwingupBulletEnv-v0"]
+#            "ReacherBulletEnv-v0",\
+#            "HalfCheetahBulletEnv-v0"]
 
-    pop_size = {"InvertedPendulumSwingupBulletEnv-v0": 128,\
-            "HalfCheetachBulletEnv": 256,\
-            "ReacherBulletEnv-v0": 128}
+    pop_size = {\
+            "InvertedPendulumBulletEnv-v0": 128,\
+            "InvertedPendulumSwingupBulletEnv-v0": 256,\
+            "HalfCheetahBulletEnv-v0": 256,\
+            "ReacherBulletEnv-v0": 128,\
+            "Walker2DBulletEnv-v0": 128}
 
-    thresh_performance = {"InvertedPendulumSwingupBulletEnv-v0": 850,\
-            "HalfCheetachBulletEnv": 3000,\
-            "ReacherBulletEnv-v0": 200}
-    max_generation = {"InvertedPendulumSwingupBulletEnv-v0": 1024,\
-            "HalfCheetachBulletEnv": 1024,\
-            "ReacherBulletEnv-v0": 1024}
+    thresh_performance = {\
+            "InvertedPendulumBulletEnv-v0": 999.5,\
+            "InvertedPendulumSwingupBulletEnv-v0": 880,\
+            "HalfCheetahBulletEnv-v0": 3000,\
+            "ReacherBulletEnv-v0": 200,\
+            "Walker2DBulletEnv-v0": 3000}
+    max_generation = {\
+            "InvertedPendulumBulletEnv-v0": 1024,\
+            "InvertedPendulumSwingupBulletEnv-v0": 1024,\
+            "HalfCheetahBulletEnv-v0": 1024,\
+            "ReacherBulletEnv-v0": 1024,\
+            "Walker2DBulletEnv-v0": 1024}
+
     res_dir = os.listdir("./results/")
     model_dir = os.listdir("./models/")
 
-    exp_dir = "cma_16_exp000"
+    exp_dir = "cma_32_exp004"
     exp_time = str(int(time.time()))[-7:]
     if exp_dir not in res_dir:
         os.mkdir("./results/"+exp_dir)
@@ -255,7 +266,7 @@ if __name__ == "__main__":
                     "elite_agent_sum": []}
 
             exp_id = "exp_" + exp_time + "env_" +\
-                    env_name[:6]+env_name[-12:-3] + "_s" + str(my_seed)
+                    env_name + "_s" + str(my_seed)
 
             # build env and agent population
             if type(env_name) == str:
@@ -280,8 +291,6 @@ if __name__ == "__main__":
             total_total_steps = 0
             for generation in range(max_generation[env_name]):
 
-                if "Bullet" in env_name:
-                    env._max_episode_steps = np.max([200, agent.best_agent]) #max_env_steps[env_name]
 
                 fitness, total_steps = agent.get_fitness(env, render=render,\
                         epds=epds)
@@ -313,20 +322,6 @@ if __name__ == "__main__":
                 results["mean_agent_sum"].append(mean_connections)
                 results["std_agent_sum"].append(std_connections)
 
-                if generation % save_every == 0:
-                    np.save("./results/{}/cma_{}.npy"\
-                            .format(exp_dir, exp_id),results)
-                    np.save("./models/{}/cma_elite_pop_{}_gen{}.npy"\
-                            .format(exp_dir,exp_id,generation),agent.elite_pop)
-
-                if results["elite_mean_fit"][-1] >= \
-                        thresh_performance[env_name]\
-                        and\
-                        generation >= min_generations:
-
-                    print("environment solved, ending training")
-                    break
-
                 print("gen {} elapsed {:.3f}, mean/max/min fitness: {:.3f}/{:.3f}/{:.3f} elite mean/max/min {:.3f}/{:.3f}/{:.3f}"\
                         .format(generation, results["wall_time"][-1],\
                         results["pop_mean_fit"][-1],\
@@ -335,3 +330,18 @@ if __name__ == "__main__":
                         results["elite_mean_fit"][-1],\
                         results["elite_max_fit"][-1],\
                         results["elite_min_fit"][-1]))
+
+                if generation % save_every == 0:
+                    np.save("./results/{}/cma_{}.npy"\
+                            .format(exp_dir, exp_id),results)
+                    np.save("./models/{}/cma_elite_pop_{}_gen{}.npy"\
+                            .format(exp_dir,exp_id,generation),agent.elite_pop)
+
+                    if results["elite_max_fit"][-1] >= \
+                            thresh_performance[env_name]\
+                            and\
+                            generation >= min_generations:
+
+                        print("environment solved, ending training")
+                        break
+
