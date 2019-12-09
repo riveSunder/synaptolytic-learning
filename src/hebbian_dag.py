@@ -14,7 +14,7 @@ def sigmoid(x):
 
 def sinc(x):
     
-    return np.where(x == 0, 1.0, np.sin(x) / (x))
+    return np.where(x == 0, 1.0, np.sin(x) / (1e-3+x))
 
 def softmax(x):
     x = x - np.max(x)
@@ -231,7 +231,7 @@ class HebbianDAG():
 if __name__ == "__main__":
 
     min_generations = 10
-    epds = 4
+    epds = 8
     save_every = 50
 
     hid_dims = {\
@@ -243,11 +243,11 @@ if __name__ == "__main__":
             "HopperBulletEnv-v0": [32,32,32]}
 
     env_names = [\
-            "InvertedDoublePendulumBulletEnv-v0",\
-            "InvertedPendulumBulletEnv-v0",\
-            "InvertedPendulumSwingupBulletEnv-v0",\
-            "ReacherBulletEnv-v0",\
-             "Walker2DBulletEnv-v0"]
+            "Walker2DBulletEnv-v0"]
+#            "InvertedPendulumBulletEnv-v0",\
+#            "InvertedDoublePendulumBulletEnv-v0",\
+#            "InvertedPendulumSwingupBulletEnv-v0",\
+#            "ReacherBulletEnv-v0",\
 #            "HopperBulletEnv-v0"]
 #            "InvertedPendulumSwingupBulletEnv-v0"]
 #            "HalfCheetahBulletEnv-v0"]
@@ -255,11 +255,11 @@ if __name__ == "__main__":
     pop_size = {\
             "InvertedDoublePendulumBulletEnv-v0": 128,\
             "InvertedPendulumBulletEnv-v0": 128,\
-            "InvertedPendulumSwingupBulletEnv-v0": 256,\
+            "InvertedPendulumSwingupBulletEnv-v0": 128,\
             "HalfCheetahBulletEnv-v0": 256,\
             "HopperBulletEnv-v0": 256,\
             "ReacherBulletEnv-v0": 128,\
-            "Walker2DBulletEnv-v0": 128}
+            "Walker2DBulletEnv-v0": 256}
 
     thresh_performance = {\
             "InvertedDoublePendulumBulletEnv-v0": 1999,\
@@ -268,7 +268,8 @@ if __name__ == "__main__":
             "HalfCheetahBulletEnv-v0": 3000,\
             "HopperBulletEnv-v0": 3000,\
             "ReacherBulletEnv-v0": 200,\
-            "Walker2DBulletEnv-v0": 3000}
+            "Walker2DBulletEnv-v0": 2995}
+
     max_generation = {\
             "InvertedDoublePendulumBulletEnv-v0": 1024,\
             "InvertedPendulumBulletEnv-v0": 1024,\
@@ -276,7 +277,7 @@ if __name__ == "__main__":
             "HalfCheetahBulletEnv-v0": 1024,\
             "HopperBulletEnv-v0": 1024,\
             "ReacherBulletEnv-v0": 1024,\
-            "Walker2DBulletEnv-v0": 1024}
+            "Walker2DBulletEnv-v0": 2048}
 
     res_dir = os.listdir("./results/")
     model_dir = os.listdir("./models/")
@@ -386,31 +387,31 @@ if __name__ == "__main__":
 
                 smooth_fit = alpha * smooth_fit + ( 1-alpha ) * results["elite_max_fit"][-1]
 
-                print("mk1 gen {} elapsed {:.1f} mut rate {:.1f},  mean/max/min fitness: {:.1f}/{:.1f}/{:.1f}, elite {:.1f}/{:.1f}/{:.1f}/{:.1f}, {:.1f}/{:.1f}"\
+                print("hebbian dag gen {} elapsed {:.1f} mut rate {:.1f},  mean/max/min fitness: {:.1f}/{:.1f}/{:.1f}, elite {:.1f}/{:.1f}/{:.1f}/{:.1f}, {:.1f}/{:.1f}"\
                         .format(generation, results["wall_time"][-1],\
                         results["prune_prob"][-1],\
                         results["pop_mean_fit"][-1],\
                         results["pop_max_fit"][-1],\
                         results["pop_min_fit"][-1],\
-                        smooth_fit,\
                         results["elite_mean_fit"][-1],\
+                        smooth_fit,\
                         results["elite_max_fit"][-1],\
                         results["elite_min_fit"][-1],\
                         mean_connections, std_connections))
 
                 if generation % save_every == 0:
-                    np.save("./results/{}/prunemk1_{}.npy"\
+                    np.save("./results/{}/hebbian_dag_{}.npy"\
                             .format(exp_dir, exp_id),results)
-                    np.save("./models/{}/prunemk1_elite_pop_{}_gen{}.npy"\
+                    np.save("./models/{}/hebbian_dag_{}_gen{}.npy"\
                             .format(exp_dir,exp_id, generation), agent.elite_pop)
 
                 if smooth_fit >= \
                         thresh_performance[env_name]\
                         and\
                         generation >= min_generations:
-                    np.save("./results/{}/hebbian_{}.npy"\
+                    np.save("./results/{}/hebbian_dag_{}.npy"\
                             .format(exp_dir, exp_id),results)
-                    np.save("./models/{}/hebbian_elite_pop_{}_gen{}.npy"\
+                    np.save("./models/{}/hebbian_dag_{}_gen{}.npy"\
                             .format(exp_dir,exp_id, generation), agent.elite_pop)
                     print("environment solved, ending training")
                     break

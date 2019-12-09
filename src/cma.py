@@ -9,9 +9,12 @@ import pybullet
 import pybullet_envs
 from pybullet_envs.bullet import MinitaurBulletEnv
 
+def sinc(x):
+    return np.where(x == 0, 1.0, np.sin(x) / (1e-3+x))
+
 class CMAAgent():
     def __init__(self, obs_dim, act_dim, population_size, \
-            seed=0, hid_dim=16, discrete=False):
+            seed=0, hid_dim=[16], discrete=False):
 
         self.act_dim = act_dim
         self.obs_dim = obs_dim
@@ -35,10 +38,11 @@ class CMAAgent():
 
         for ii in range(len(self.hid_dim)):
             x = np.matmul(x, self.population[agent_idx][ii])
-            x = np.tanh(x)
+            #x = np.tanh(x)
+            x = sinc(x)
 
         if self.discrete:
-            x = sigmoid( np.matmul(x, self.population[agent_idx][-1]))
+            x = ( np.matmul(x, self.population[agent_idx][-1]))
             #x = np.where(x > 0.5, 1, 0) 
         else:
             x =  np.matmul(x, self.population[agent_idx][-1])
@@ -97,21 +101,21 @@ class CMAAgent():
         keep = int(np.ceil(0.125*self.population_size))
         if sorted_fitness[0] > self.best_agent:
             # keep best agent
-            print("new best elite agent: {} v {}".\
+            print("new best elite agent: {:.2f} v {:.2f}".\
                     format(sorted_fitness[0], self.best_agent))
             self.elite_agent = self.population[sort_indices[0]]
             self.best_agent = sorted_fitness[0]
 
-        if np.mean(sorted_fitness[:keep]) > -float("Inf"): # self.best_gen:
+        if np.mean(sorted_fitness[:keep]) >  self.best_gen:
             # keep best elite population
-            #print("new best elite population: {} v {}".\
-            #        format(np.mean(sorted_fitness[:keep]), self.best_gen))
+            print("new best elite population: {:.2f} v {:.2f}".\
+                    format(np.mean(sorted_fitness[:keep]), self.best_gen))
             self.best_gen = np.mean(sorted_fitness[:keep])
 
-            self.elite_pop = []
-            self.elite_pop.append(self.elite_agent)
-            for oo in range(keep):
-                self.elite_pop.append(self.population[sort_indices[oo]])
+        self.elite_pop = []
+        self.elite_pop.append(self.elite_agent)
+        for oo in range(keep):
+            self.elite_pop.append(self.population[sort_indices[oo]])
 
         num_elite = len(self.elite_pop)
 
@@ -147,6 +151,9 @@ class CMAAgent():
         mean_params = np.mean(params, axis=0)
         mean_cov = np.matmul(( elite_params - self.dist[0]).T,\
                 (elite_params-self.dist[0]) )
+
+        mean_cov += 1e-10 * np.eye(*mean_cov.shape)
+        np.clip(mean_cov,0.0,1e2)
 
         self.dist = [mean_params, mean_cov]
 
@@ -203,58 +210,67 @@ class CMAAgent():
 
 
 if __name__ == "__main__":
-
-    min_generations = 100
+    min_generations = 10
     epds = 8
     save_every = 50
-    hid_dim = [64]
+
+    hid_dims = {\
+            "InvertedPendulumBulletEnv-v0": [8],\
+            "InvertedPendulumSwingupBulletEnv-v0": [16],\
+            "InvertedDoublePendulumBulletEnv-v0": [16,16],\
+            "ReacherBulletEnv-v0": [16,16],\
+            "Walker2DBulletEnv-v0": [16,16],\
+            "HopperBulletEnv-v0": [32,32,32]}
 
     env_names = [\
-            "InvertedPendulumBulletEnv-v0"]
-#            "InvertedPendulumSwingupBulletEnv-v0"]
-#            "InvertedDoublePendulumBulletEnv-v0"]
-#             "Walker2DBulletEnv-v0"]
-#            "InvertedPendulumSwingupBulletEnv-v0"]
-#            "ReacherBulletEnv-v0",\
-#            "HalfCheetahBulletEnv-v0"]
-
+            "InvertedPendulumBulletEnv-v0",\
+            "InvertedDoublePendulumBulletEnv-v0",\
+            "InvertedPendulumSwingupBulletEnv-v0",\
+            "ReacherBulletEnv-v0",\
+            "Walker2DBulletEnv-v0"]
     pop_size = {\
             "InvertedDoublePendulumBulletEnv-v0": 128,\
             "InvertedPendulumBulletEnv-v0": 128,\
-            "InvertedPendulumSwingupBulletEnv-v0": 256,\
+            "InvertedPendulumSwingupBulletEnv-v0": 128,\
             "HalfCheetahBulletEnv-v0": 256,\
+            "HopperBulletEnv-v0": 256,\
             "ReacherBulletEnv-v0": 128,\
-            "Walker2DBulletEnv-v0": 128}
+            "Walker2DBulletEnv-v0": 256}
 
     thresh_performance = {\
-            "InvertedDoublePendulumBulletEnv-v0": 1999.0,\
+            "InvertedDoublePendulumBulletEnv-v0": 1999,\
             "InvertedPendulumBulletEnv-v0": 999.5,\
             "InvertedPendulumSwingupBulletEnv-v0": 880,\
             "HalfCheetahBulletEnv-v0": 3000,\
+            "HopperBulletEnv-v0": 3000,\
             "ReacherBulletEnv-v0": 200,\
-            "Walker2DBulletEnv-v0": 3000}
+            "Walker2DBulletEnv-v0": 2995}
+
     max_generation = {\
             "InvertedDoublePendulumBulletEnv-v0": 1024,\
             "InvertedPendulumBulletEnv-v0": 1024,\
             "InvertedPendulumSwingupBulletEnv-v0": 1024,\
             "HalfCheetahBulletEnv-v0": 1024,\
+            "HopperBulletEnv-v0": 1024,\
             "ReacherBulletEnv-v0": 1024,\
-            "Walker2DBulletEnv-v0": 1024}
-
+            "Walker2DBulletEnv-v0": 2048}
     res_dir = os.listdir("./results/")
     model_dir = os.listdir("./models/")
 
-    exp_dir = "cma_32_exp004"
+    exp_dir = "exp005"
     exp_time = str(int(time.time()))[-7:]
     if exp_dir not in res_dir:
         os.mkdir("./results/"+exp_dir)
     if exp_dir not in model_dir:
         os.mkdir("./models/"+exp_dir)
 
+    smooth_fit = 0.0
+    alpha = 0.5
     for my_seed in [2,1,0]:
         np.random.seed(my_seed)
         for env_name in env_names:
 
+            hid_dim = hid_dims[env_name]
             results = {"generation": [],\
                     "total_env_interacts": [],\
                     "wall_time": [],\
@@ -329,27 +345,31 @@ if __name__ == "__main__":
                 results["mean_agent_sum"].append(mean_connections)
                 results["std_agent_sum"].append(std_connections)
 
-                print("gen {} elapsed {:.1f}/{:.1f}, mean/max/min fitness: {:.3f}/{:.3f}/{:.3f} elite mean/max/min {:.3f}/{:.3f}/{:.3f}"\
+                print("cma gen {} elapsed {:.1f}/{:.1f}, mean/max/min fitness: {:.1f}/{:.1f}/{:.1f} elite mean/max/min {:.1f}/{:.1f}/{:.1f}/{:.1f}"\
                         .format(generation, time.time()-t1,\
                         results["wall_time"][-1],\
                         results["pop_mean_fit"][-1],\
                         results["pop_max_fit"][-1],\
                         results["pop_min_fit"][-1],\
                         results["elite_mean_fit"][-1],\
+                        smooth_fit,\
                         results["elite_max_fit"][-1],\
                         results["elite_min_fit"][-1]))
 
                 if generation % save_every == 0:
                     np.save("./results/{}/cma_{}.npy"\
                             .format(exp_dir, exp_id),results)
-                    np.save("./models/{}/cma_elite_pop_{}_gen{}.npy"\
+                    np.save("./models/{}/cma_{}_gen{}.npy"\
                             .format(exp_dir,exp_id,generation),agent.elite_pop)
 
-                    if results["elite_max_fit"][-1] >= \
-                            thresh_performance[env_name]\
-                            and\
-                            generation >= min_generations:
-
-                        print("environment solved, ending training")
-                        break
-
+                smooth_fit = alpha * smooth_fit + ( 1-alpha ) * results["elite_max_fit"][-1]
+                if smooth_fit >= \
+                        thresh_performance[env_name]\
+                        and\
+                        generation >= min_generations:
+                    np.save("./results/{}/cma_{}.npy"\
+                            .format(exp_dir, exp_id),results)
+                    np.save("./models/{}/cma_{}_gen{}.npy"\
+                            .format(exp_dir,exp_id, generation), agent.elite_pop)
+                    print("environment solved, ending training")
+                    break

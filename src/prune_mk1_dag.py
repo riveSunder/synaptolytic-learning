@@ -12,6 +12,9 @@ import pybullet_envs
 def sigmoid(x):
     return np.exp(x) / (1 + np.exp(x))
 
+def sinc(x):
+    return np.where(x == 0, 1.0, np.sin(x) / (1e-3+x))
+
 def softmax(x):
     x = x - np.max(x)
 
@@ -54,7 +57,8 @@ class PruneableAgent():
                 x = np.zeros((self.hid[ii+1]))
 
                 x += np.matmul(xs[jj], self.pop[agent_idx][ii][jj])
-            x = np.tanh(x)
+            #x = np.tanh(x)
+            x = sinc(x)
 
             xs.append(x)
             #x[x<0] = 0 # relu
@@ -223,44 +227,46 @@ class PruneableAgent():
                     self.pop[jj][kk][ll] = temp_layer
 
 if __name__ == "__main__":
-
     min_generations = 10
-    epds = 4
+    epds = 8
     save_every = 50
 
     hid_dims = {\
             "InvertedPendulumBulletEnv-v0": [32],\
-            "InvertedPendulumSwingupBulletEnv-v0": [8,8,8],\
+            "InvertedPendulumSwingupBulletEnv-v0": [32,32],\
             "InvertedDoublePendulumBulletEnv-v0": [16,16,16],\
+            "ReacherBulletEnv-v0": [32,32,32],\
+            "Walker2DBulletEnv-v0": [32,32,32,32],\
             "HopperBulletEnv-v0": [32,32,32]}
 
     env_names = [\
             "InvertedPendulumBulletEnv-v0",\
-            "InvertedPendulumSwingupBulletEnv-v0",\
             "InvertedDoublePendulumBulletEnv-v0",\
-            "HopperBulletEnv-v0"]
-#             "Walker2DBulletEnv-v0"]
+            "InvertedPendulumSwingupBulletEnv-v0",\
+            "ReacherBulletEnv-v0",\
+            "Walker2DBulletEnv-v0"]
+#            "HopperBulletEnv-v0"]
 #            "InvertedPendulumSwingupBulletEnv-v0"]
-#            "ReacherBulletEnv-v0",\
 #            "HalfCheetahBulletEnv-v0"]
 
     pop_size = {\
             "InvertedDoublePendulumBulletEnv-v0": 128,\
             "InvertedPendulumBulletEnv-v0": 128,\
-            "InvertedPendulumSwingupBulletEnv-v0": 256,\
+            "InvertedPendulumSwingupBulletEnv-v0": 128,\
             "HalfCheetahBulletEnv-v0": 256,\
             "HopperBulletEnv-v0": 256,\
             "ReacherBulletEnv-v0": 128,\
-            "Walker2DBulletEnv-v0": 128}
+            "Walker2DBulletEnv-v0": 256}
 
     thresh_performance = {\
-            "InvertedDoublePendulumBulletEnv-v0": 999,\
+            "InvertedDoublePendulumBulletEnv-v0": 1999,\
             "InvertedPendulumBulletEnv-v0": 999.5,\
             "InvertedPendulumSwingupBulletEnv-v0": 880,\
             "HalfCheetahBulletEnv-v0": 3000,\
             "HopperBulletEnv-v0": 3000,\
             "ReacherBulletEnv-v0": 200,\
-            "Walker2DBulletEnv-v0": 3000}
+            "Walker2DBulletEnv-v0": 2995}
+
     max_generation = {\
             "InvertedDoublePendulumBulletEnv-v0": 1024,\
             "InvertedPendulumBulletEnv-v0": 1024,\
@@ -268,7 +274,7 @@ if __name__ == "__main__":
             "HalfCheetahBulletEnv-v0": 1024,\
             "HopperBulletEnv-v0": 1024,\
             "ReacherBulletEnv-v0": 1024,\
-            "Walker2DBulletEnv-v0": 1024}
+            "Walker2DBulletEnv-v0": 2048}
 
     res_dir = os.listdir("./results/")
     model_dir = os.listdir("./models/")
@@ -282,7 +288,7 @@ if __name__ == "__main__":
 
     render = False
     smooth_fit = 0.0
-    alpha = 0.667
+    alpha = 0.5
     for my_seed in [0,1,2]:
         np.random.seed(my_seed)
         for env_name in env_names:
@@ -376,30 +382,31 @@ if __name__ == "__main__":
                 results["std_agent_sum"].append(std_connections)
 
                 smooth_fit = alpha * smooth_fit + ( 1-alpha ) * results["elite_max_fit"][-1]
-                print("mk1 gen {} elapsed {:.1f} mut rate {:.1f}, smooth mean/max/min fitness: {:.1f}/{:.1f}/{:.1f}, elite {:.1f}/{:.1f}/{:.1f}, {:.1f}/{:.1f}"\
+                print("mk1 dag gen {} elapsed {:.1f} mut rate {:.3f}, mean/max/min fitness: {:.1f}/{:.1f}/{:.1f}, elite {:.1f}/{:.1f}/{:.1f}/{:.1f}, {:.1f}/{:.1f}"\
                         .format(generation, results["wall_time"][-1],\
                         results["prune_prob"][-1],\
-                        smooth_fit,\
+                        results["pop_mean_fit"][-1],\
                         results["pop_max_fit"][-1],\
                         results["pop_min_fit"][-1],\
                         results["elite_mean_fit"][-1],\
+                        smooth_fit,\
                         results["elite_max_fit"][-1],\
                         results["elite_min_fit"][-1],\
                         mean_connections, std_connections))
 
                 if generation % save_every == 0:
-                    np.save("./results/{}/prunemk1_{}.npy"\
+                    np.save("./results/{}/mk1_dag_{}.npy"\
                             .format(exp_dir, exp_id),results)
-                    np.save("./models/{}/prunemk1_elite_pop_{}_gen{}.npy"\
+                    np.save("./models/{}/mk1_dag_{}_gen{}.npy"\
                             .format(exp_dir,exp_id, generation), agent.elite_pop)
 
                 if smooth_fit >= \
                         thresh_performance[env_name]\
                         and\
                         generation >= min_generations:
-                    np.save("./results/{}/hebbian_{}.npy"\
+                    np.save("./results/{}/mk1_dag_{}.npy"\
                             .format(exp_dir, exp_id),results)
-                    np.save("./models/{}/hebbian_elite_pop_{}_gen{}.npy"\
+                    np.save("./models/{}/mk1_dag_{}_gen{}.npy"\
                             .format(exp_dir,exp_id, generation), agent.elite_pop)
                     print("environment solved, ending training")
                     break

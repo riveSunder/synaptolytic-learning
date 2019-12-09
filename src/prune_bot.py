@@ -196,14 +196,22 @@ class PruneableAgent():
 
 if __name__ == "__main__":
 
-    min_generations = 100
-    epds = 16
+    min_generations = 10
+    epds = 4
     save_every = 50
 
-    hid_dim = 64
+    hid_dims = {\
+            "InvertedPendulumBulletEnv-v0": [32],\
+            "InvertedPendulumSwingupBulletEnv-v0": [32],\
+            "InvertedDoublePendulumBulletEnv-v0": [16,16],\
+            "HopperBulletEnv-v0": [32,32]}
 
     env_names = [\
-            "InvertedDoublePendulumBulletEnv-v0"]
+            "InvertedPendulumBulletEnv-v0",\
+            "InvertedPendulumSwingupBulletEnv-v0",\
+            "InvertedDoublePendulumBulletEnv-v0",\
+            "HopperBulletEnv-v0"]
+    env_names = [ el for el in reversed(env_names)]
 #             "Walker2DBulletEnv-v0"]
 #            "InvertedPendulumSwingupBulletEnv-v0"]
 #            "ReacherBulletEnv-v0",\
@@ -214,6 +222,7 @@ if __name__ == "__main__":
             "InvertedPendulumBulletEnv-v0": 128,\
             "InvertedPendulumSwingupBulletEnv-v0": 256,\
             "HalfCheetahBulletEnv-v0": 256,\
+            "HopperBulletEnv-v0": 256,\
             "ReacherBulletEnv-v0": 128,\
             "Walker2DBulletEnv-v0": 128}
 
@@ -222,6 +231,7 @@ if __name__ == "__main__":
             "InvertedPendulumBulletEnv-v0": 999.5,\
             "InvertedPendulumSwingupBulletEnv-v0": 880,\
             "HalfCheetahBulletEnv-v0": 3000,\
+            "HopperBulletEnv-v0": 3000,\
             "ReacherBulletEnv-v0": 200,\
             "Walker2DBulletEnv-v0": 3000}
     max_generation = {\
@@ -229,13 +239,14 @@ if __name__ == "__main__":
             "InvertedPendulumBulletEnv-v0": 1024,\
             "InvertedPendulumSwingupBulletEnv-v0": 1024,\
             "HalfCheetahBulletEnv-v0": 1024,\
+            "HopperBulletEnv-v0": 1024,\
             "ReacherBulletEnv-v0": 1024,\
             "Walker2DBulletEnv-v0": 1024}
 
     res_dir = os.listdir("./results/")
     model_dir = os.listdir("./models/")
 
-    exp_dir = "prune_mk1_32_exp004"
+    exp_dir = "exp005"
     exp_time = str(int(time.time()))[-7:]
     if exp_dir not in res_dir:
         os.mkdir("./results/"+exp_dir)
@@ -243,6 +254,8 @@ if __name__ == "__main__":
         os.mkdir("./models/"+exp_dir)
 
     render = False
+    smooth_fit = 0.0
+    alpha = 0.8
     for my_seed in [0,1,2]:
         np.random.seed(my_seed)
         for env_name in env_names:
@@ -253,7 +266,9 @@ if __name__ == "__main__":
                 del(agent)
             except:
                 pass
-            
+
+            hid_dim = hid_dims[env_name]  
+
             results = {"generation": [],\
                     "total_env_interacts": [],\
                     "wall_time": [],\
@@ -286,7 +301,7 @@ if __name__ == "__main__":
                 discrete = False
 
             population_size = pop_size[env_name]
-            agent = PruneableAgent(obs_dim, act_dim, hid=[hid_dim, hid_dim], \
+            agent = PruneableAgent(obs_dim, act_dim, hid=hid_dim, \
                     pop_size=population_size, discrete=discrete)
 
             total_total_steps = 0
@@ -349,11 +364,14 @@ if __name__ == "__main__":
                     np.save("./models/{}/prunemk1_elite_pop_{}_gen{}.npy"\
                             .format(exp_dir,exp_id, generation), agent.elite_pop)
 
-
-                    if results["elite_max_fit"][-1] >= \
-                            thresh_performance[env_name]\
-                            and\
-                            generation >= min_generations:
-
-                        print("environment solved, ending training")
-                        break
+                smooth_fit = alpha * smooth_fit + ( 1-alpha ) * results["elite_max_fit"][-1]
+                if smooth_fit >= \
+                        thresh_performance[env_name]\
+                        and\
+                        generation >= min_generations:
+                    np.save("./results/{}/hebbian_{}.npy"\
+                            .format(exp_dir, exp_id),results)
+                    np.save("./models/{}/hebbian_elite_pop_{}_gen{}.npy"\
+                            .format(exp_dir,exp_id, generation), agent.elite_pop)
+                    print("environment solved, ending training")
+                    break
