@@ -38,8 +38,9 @@ class CMAAgent():
 
         for ii in range(len(self.hid_dim)):
             x = np.matmul(x, self.population[agent_idx][ii])
-            #x = np.tanh(x)
-            x = sinc(x)
+            #x = sinc(x)
+            x = np.tanh(x-1)
+            #x = np.sin(x)
 
         if self.discrete:
             x = ( np.matmul(x, self.population[agent_idx][-1]))
@@ -153,7 +154,8 @@ class CMAAgent():
                 (elite_params-self.dist[0]) )
 
         mean_cov += 1e-10 * np.eye(*mean_cov.shape)
-        np.clip(mean_cov,0.0,1e2)
+        mean_cov = np.clip(mean_cov, 0.0, 1e2)
+        mean_params = np.clip(mean_params, 1e-3,1e3)
 
         self.dist = [mean_params, mean_cov]
 
@@ -257,7 +259,7 @@ if __name__ == "__main__":
     res_dir = os.listdir("./results/")
     model_dir = os.listdir("./models/")
 
-    exp_dir = "exp005"
+    exp_dir = "exp007"
     exp_time = str(int(time.time()))[-7:]
     if exp_dir not in res_dir:
         os.mkdir("./results/"+exp_dir)
@@ -305,6 +307,7 @@ if __name__ == "__main__":
                 act_dim = env.action_space.sample().shape[0]
                 discrete = False
 
+            print("make env", env_name)
             population_size = pop_size[env_name]
             agent = CMAAgent(obs_dim, act_dim,\
                     population_size, hid_dim=hid_dim, discrete=discrete)

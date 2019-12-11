@@ -211,7 +211,6 @@ if __name__ == "__main__":
             "InvertedPendulumSwingupBulletEnv-v0",\
             "InvertedDoublePendulumBulletEnv-v0",\
             "HopperBulletEnv-v0"]
-    env_names = [ el for el in reversed(env_names)]
 #             "Walker2DBulletEnv-v0"]
 #            "InvertedPendulumSwingupBulletEnv-v0"]
 #            "ReacherBulletEnv-v0",\

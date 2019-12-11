@@ -36,9 +36,11 @@ class CMALayerAgent():
     def get_action(self, obs, agent_idx):
         x = obs        
 
-        x = np.matmul(x, self.population[agent_idx][0])
-        #x = np.tanh(x)
-        x = sinc(x)
+        for ii in range(len(self.hid_dim)):
+            x = np.matmul(x, self.population[agent_idx][ii])
+            #x = sinc(x)
+            x = np.tanh(x-1)
+            #x = np.sin(x)
 
         if self.discrete:
             x = (self.by + np.matmul(x, self.population[agent_idx][-1]))
@@ -105,7 +107,7 @@ class CMALayerAgent():
             self.elite_agent = self.population[sort_indices[0]]
             self.best_agent = sorted_fitness[0]
 
-        if np.mean(sorted_fitness[:keep]): # self.best_gen:
+        if np.mean(sorted_fitness[:keep]) > self.best_gen:
             # keep best elite population
             print("new best elite population: {:.2f} v {:.2f}".\
                     format(np.mean(sorted_fitness[:keep]), self.best_gen))
@@ -257,7 +259,7 @@ if __name__ == "__main__":
     res_dir = os.listdir("./results/")
     model_dir = os.listdir("./models/")
 
-    exp_dir = "exp005"
+    exp_dir = "exp007"
     exp_time = str(int(time.time()))[-7:]
     if exp_dir not in res_dir:
         os.mkdir("./results/"+exp_dir)
@@ -307,6 +309,7 @@ if __name__ == "__main__":
                 act_dim = env.action_space.sample().shape[0]
                 discrete = False
 
+            print("make env", env_name)
             population_size = pop_size[env_name]
             agent = CMALayerAgent(obs_dim, act_dim,\
                     population_size, hid_dim=hid_dim, discrete=discrete)

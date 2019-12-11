@@ -381,7 +381,7 @@ if __name__ == "__main__":
                 smooth_fit = alpha * smooth_fit + ( 1-alpha ) * results["elite_max_fit"][-1]
                 print("hebbian gen {} elapsed {:.2f},  mean/max/min fitness: {:.1f}/{:.1f}/{:.1f}, elite {:.1f}/{:.1f}/{:.1f}/{:.1f}, {:.2f}/{:.2f}"\
                         .format(generation, results["wall_time"][-1],\
-                        results["pop_mean_fit"][-1],\ 
+                        results["pop_mean_fit"][-1],\
                         results["pop_max_fit"][-1],\
                         results["pop_min_fit"][-1],\
                         smooth_fit,\

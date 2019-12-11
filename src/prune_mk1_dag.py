@@ -57,8 +57,9 @@ class PruneableAgent():
                 x = np.zeros((self.hid[ii+1]))
 
                 x += np.matmul(xs[jj], self.pop[agent_idx][ii][jj])
-            #x = np.tanh(x)
-            x = sinc(x)
+            x = np.tanh(x-1)
+            #x = sinc(x)
+            #x = np.sin(x)
 
             xs.append(x)
             #x[x<0] = 0 # relu
@@ -196,8 +197,6 @@ class PruneableAgent():
                         layers[layer_layer].append(layer_weights)
 
 
-                #[[print(b.shape) for b in c] for c in layers[layer_layer]]        
-                #[print(len(layer)) for layer in layers]
 
 
             self.pop.append(layers)
@@ -279,7 +278,7 @@ if __name__ == "__main__":
     res_dir = os.listdir("./results/")
     model_dir = os.listdir("./models/")
 
-    exp_dir = "exp005"
+    exp_dir = "exp007"
     exp_time = str(int(time.time()))[-7:]
     if exp_dir not in res_dir:
         os.mkdir("./results/"+exp_dir)
@@ -323,6 +322,7 @@ if __name__ == "__main__":
                     env_name + "_s" + str(my_seed)
 
             env = gym.make(env_name)
+            print("make env", env_name)
 
             obs_dim = env.observation_space.shape[0]
 
@@ -382,7 +382,7 @@ if __name__ == "__main__":
                 results["std_agent_sum"].append(std_connections)
 
                 smooth_fit = alpha * smooth_fit + ( 1-alpha ) * results["elite_max_fit"][-1]
-                print("mk1 dag gen {} elapsed {:.1f} mut rate {:.3f}, mean/max/min fitness: {:.1f}/{:.1f}/{:.1f}, elite {:.1f}/{:.1f}/{:.1f}/{:.1f}, {:.1f}/{:.1f}"\
+                print("mk1 dag gen {} elapsed {:.1f} mut rate {:.3f}, mean/max/min fitness: {:.1f}/{:.1f}/{:.1f}, elite {:.1f}/{:.1f}/{:.1f}/{:.1f}, {:.1f}+/-{:.1f}"\
                         .format(generation, results["wall_time"][-1],\
                         results["prune_prob"][-1],\
                         results["pop_mean_fit"][-1],\
