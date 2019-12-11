@@ -13,7 +13,6 @@ def sigmoid(x):
     return np.exp(x) / (1 + np.exp(x))
 
 def sinc(x):
-    
     return np.where(x == 0, 1.0, np.sin(x) / (1e-3+x))
 
 def softmax(x):
@@ -60,8 +59,9 @@ class HebbianDAG():
                 x += np.matmul(xs[jj], self.population[agent_idx][ii][jj])
                 self.hebbian[agent_idx][ii][jj] += np.matmul(xs[jj][np.newaxis,:].T, x[np.newaxis,:])
 
-            #x = np.tanh(x)
-            x = sinc(x)
+            x = np.tanh(x-1)
+            #x = sinc(x)
+            #x = np.sin(x)
 
             xs.append(x)
             #x[x<0] = 0 # relu
@@ -196,7 +196,7 @@ class HebbianDAG():
 
             self.hebbian.append(heb_layers)
 
-    def hebbian_prune(self, prune_rate=0.05):
+    def hebbian_prune(self, prune_rate=0.01):
 
         for jj in range(self.pop_size):
             for kk in range(len(self.population[jj])):
@@ -207,12 +207,13 @@ class HebbianDAG():
                     prunes_per_layer = prune_rate * temp_layer.shape[0]*temp_layer.shape[1]
 
                     temp_layer *= 1.0 * (np.random.random((temp_layer.shape[0],\
-                            temp_layer.shape[1])) > (softmax(self.hebbian[jj][kk][ll]) \
+                            temp_layer.shape[1])) > (softmax(-self.hebbian[jj][kk][ll]) \
                             * prunes_per_layer))
 
                     self.hebbian[jj][kk][ll] *= 0
 
                     self.population[jj][kk][ll] = temp_layer
+        self.population[0] = self.elite_agent
 
     def mutate_pop(self, rate=0.1):
         # mutate population by 
@@ -243,11 +244,11 @@ if __name__ == "__main__":
             "HopperBulletEnv-v0": [32,32,32]}
 
     env_names = [\
+            "InvertedPendulumBulletEnv-v0",\
+            "InvertedDoublePendulumBulletEnv-v0",\
+            "InvertedPendulumSwingupBulletEnv-v0",\
+            "ReacherBulletEnv-v0",\
             "Walker2DBulletEnv-v0"]
-#            "InvertedPendulumBulletEnv-v0",\
-#            "InvertedDoublePendulumBulletEnv-v0",\
-#            "InvertedPendulumSwingupBulletEnv-v0",\
-#            "ReacherBulletEnv-v0",\
 #            "HopperBulletEnv-v0"]
 #            "InvertedPendulumSwingupBulletEnv-v0"]
 #            "HalfCheetahBulletEnv-v0"]
@@ -282,7 +283,7 @@ if __name__ == "__main__":
     res_dir = os.listdir("./results/")
     model_dir = os.listdir("./models/")
 
-    exp_dir = "exp005"
+    exp_dir = "exp007"
     exp_time = str(int(time.time()))[-7:]
     if exp_dir not in res_dir:
         os.mkdir("./results/"+exp_dir)
@@ -326,6 +327,7 @@ if __name__ == "__main__":
                     env_name + "_s" + str(my_seed)
 
             env = gym.make(env_name)
+            print("make env", env_name)
 
             obs_dim = env.observation_space.shape[0]
 
