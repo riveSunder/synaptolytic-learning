@@ -38,6 +38,7 @@ class HebbianLSTMAgent():
         elitism = 0.125
         num_elite = int( elitism * pop_size )
         self.leaderboard = [-float("Inf")] * num_elite
+        self.elite_pop = []
         self.best_gen = -float("Inf")
         self.best_agent = -float("Inf")
         np.random.seed(self.seed)
@@ -84,9 +85,9 @@ class HebbianLSTMAgent():
             self.population.append([np.copy(cell_state), np.copy(f_forget), np.copy(i_input), \
                 np.copy(j_input), np.copy(o_output), np.copy(a_action)])
 
-    def random_prune(self, prune_rate=0.01):
+    def random_prune(self, prune_rate=0.01, keep=0):
 
-        for ii in range(self.pop_size):
+        for ii in range(keep, self.pop_size):
             for jj in range(1,len(self.population[ii])):
                 dim_x, dim_y = np.shape(self.population[ii][jj]) 
                 self.population[ii][jj] *= np.random.random((dim_x, dim_y)) \
@@ -145,6 +146,7 @@ class HebbianLSTMAgent():
         std_connections = np.std(connections)
 
         keep = int(np.ceil(0.125*self.pop_size))
+
         if sorted_fitness[0] > self.best_agent:
             # keep best agent
             print("new best elite agent: {} v {}".\
@@ -152,28 +154,42 @@ class HebbianLSTMAgent():
             self.elite_agent = self.population[sort_indices[0]]
             self.best_agent = sorted_fitness[0]
 
+        lb_idx = 0 
+        fit_idx = 0
+        fitness_copy = list(copy.deepcopy(sorted_fitness))
+
+        while fitness_copy[0] > self.leaderboard[-1]:
+            
+            if fitness_copy[0] > self.leaderboard[lb_idx]:
+                self.leaderboard.insert(lb_idx, fitness_copy[0])
+                self.elite_pop.insert(lb_idx, self.population[sort_indices[fit_idx]])
+                fitness_copy.pop(0) 
+                fit_idx += 1
+            lb_idx += 1
+
+            if lb_idx > keep:
+                break
+        self.leaderboard = self.leaderboard[:keep]
+        self.elite_pop = self.elite_pop[:keep]
+            
+
         if np.mean(sorted_fitness[:keep]) > self.best_gen:
             # keep best elite population
             print("new best elite population: {} v {}".\
                     format(np.mean(sorted_fitness[:keep]), self.best_gen))
             self.best_gen = np.mean(sorted_fitness[:keep])
 
-        self.elite_pop = []
-        self.elite_pop.append(self.elite_agent)
-        for oo in range(keep):
-            self.elite_pop.append(self.population[sort_indices[oo]])
-
         self.population = []
         num_elite = len(self.elite_pop)
         p = np.arange(num_elite,0,-1) / np.sum(np.arange(num_elite,0,-1))
         a = np.arange(num_elite)
+
         for pp in range(self.pop_size):
             idx = np.random.choice(a,size=1,p=p)[0]
             self.population.append(copy.deepcopy(self.elite_pop[idx]))
         
         return sorted_fitness, num_elite, \
                 mean_connections, std_connections
-
 
                 
                         
@@ -201,16 +217,15 @@ if __name__ == "__main__":
     agent = HebbianLSTMAgent(obs_dim, act_dim, hid=hid_dim, \
             pop_size=population_size, discrete=discrete)
 
-
     obs = env.reset()
 
-    for gen in range(100):
+    for gen in range(300):
 
         fitness, total_steps = agent.get_fitness(env, epds=8)
         sorted_fitness, num_elite,\
             mean_connections, std_connections = agent.update_pop(fitness)
-        
-        agent.random_prune(prune_rate=0.05)
+        keep = 16 
+        agent.random_prune(prune_rate=0.05,keep=keep)
         agent.population[0] = agent.elite_agent
 
         print(mean_connections, " +/- ", std_connections)
