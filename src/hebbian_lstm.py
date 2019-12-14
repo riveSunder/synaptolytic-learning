@@ -1,3 +1,4 @@
+
 import numpy as np
 import gym 
 import matplotlib.pyplot as plt
@@ -8,10 +9,16 @@ import os
 import pybullet
 import pybullet_envs
 
-
 def sigmoid(x):
     x = np.clip(x, -5e2, 5e2)
     return np.exp(x) / (1 + np.exp(x))
+
+def softmax(x):
+    x = x - np.max(x)
+
+    y = np.exp(x) / np.sum(np.exp(x))
+
+    return y
 
 class HebbianLSTMAgent():
     
@@ -22,8 +29,8 @@ class HebbianLSTMAgent():
         self.output_dim = act_dim #output_dim
         self.hid = hid
         
-        self.hid.append(self.output_dim)
-        self.hid.insert(0,self.input_dim)
+        #self.hid.append(self.output_dim)
+        #self.hid.insert(0,self.input_dim)
 
         self.pop_size = pop_size
         self.seed = seed
@@ -46,10 +53,10 @@ class HebbianLSTMAgent():
         self.init_pop()
     
 
-    def get_action(self, obs, agent_idx=0, scaler=1.0, enjoy=False):
+    def get_action(self, obs, agent_idx=0, scaler=1.0, hebbian=True, enjoy=False):
         
         cell_state = self.population[agent_idx][0]
-        all_bias = -1.0
+        all_bias = 0.0
 
         x = np.append( obs, cell_state, axis=0 )
 
@@ -58,17 +65,30 @@ class HebbianLSTMAgent():
         j = sigmoid(np.matmul(x, self.population[agent_idx][3]) + all_bias )
         o = sigmoid(np.matmul(x, self.population[agent_idx][4]) + all_bias )
 
-        cell_state = cell_state * f + i * j
+        cell_state = np.tanh(cell_state * f + i * j)
 
         h = cell_state * o 
 
-        action = np.tanh(np.matmul(h, self.population[agent_idx][5]) - all_bias)
+        action = np.tanh(np.matmul(h, self.population[agent_idx][5]))
+
+        if hebbian:
+            f_hebbian = np.matmul(x[np.newaxis,:].T, f[np.newaxis,:])
+            i_hebbian = np.matmul(x[np.newaxis,:].T, i[np.newaxis,:])
+            j_hebbian = np.matmul(x[np.newaxis,:].T, j[np.newaxis,:])
+            o_hebbian = np.matmul(x[np.newaxis,:].T, o[np.newaxis,:])
+            a_hebbian = np.matmul(h[np.newaxis,:].T, action[np.newaxis,:])
+
+            self.hebbian[agent_idx][1] += f_hebbian
+            self.hebbian[agent_idx][2] += i_hebbian
+            self.hebbian[agent_idx][3] += j_hebbian
+            self.hebbian[agent_idx][4] += o_hebbian
+            self.hebbian[agent_idx][5] += a_hebbian
 
         self.population[agent_idx][0] = cell_state
         return action
         
        
-    def init_pop(self):
+    def init_pop(self, hebbian=True):
 
         f_forget = np.ones(( self.input_dim + self.hid[0], self.hid[0] ))
         i_input = np.ones(( self.input_dim + self.hid[0], self.hid[0] ))
@@ -79,11 +99,20 @@ class HebbianLSTMAgent():
         cell_state = np.zeros((self.hid[0]))
 
         self.population = []
+        self.hebbian = []
+
 
         for ii in range(self.pop_size):
         
-            self.population.append([np.copy(cell_state), np.copy(f_forget), np.copy(i_input), \
-                np.copy(j_input), np.copy(o_output), np.copy(a_action)])
+            self.population.append([np.copy(cell_state), np.copy(f_forget),\
+                np.copy(i_input),  np.copy(j_input), \
+                np.copy(o_output), np.copy(a_action)])
+
+            if hebbian:
+                self.hebbian.append([np.zeros_like(cell_state), np.zeros_like(f_forget),\
+                    np.zeros_like(i_input), np.zeros_like(j_input),\
+                    np.zeros_like(o_output), np.zeros_like(a_action)])
+
 
     def random_prune(self, prune_rate=0.01, keep=0):
 
@@ -94,8 +123,21 @@ class HebbianLSTMAgent():
                     > prune_rate
 
     def hebbian_prune(self, prune_rate=0.01):
-        pass    
 
+        for jj in range(self.pop_size):
+            for kk in range(1, len(self.population[jj])):
+
+                temp_layer = self.population[jj][kk]
+
+                prunes_per_layer = prune_rate * temp_layer.shape[0]*temp_layer.shape[1]
+
+                temp_layer *= 1.0 * (np.random.random((temp_layer.shape[0],\
+                        temp_layer.shape[1])) > (softmax(-self.hebbian[jj][kk]) \
+                        * prunes_per_layer))
+
+                self.hebbian[jj][kk] *= 0
+
+                self.population[jj][kk] = temp_layer
 
     def get_fitness(self, env, epds=6, values=[1.0], render=False):
 
@@ -196,7 +238,7 @@ class HebbianLSTMAgent():
 if __name__ == "__main__":
 
 
-    env_name = "InvertedDoublePendulumBulletEnv-v0"
+    env_name = "InvertedPendulumBulletEnv-v0"
 
     env = gym.make(env_name)
     print("make env", env_name)
@@ -210,25 +252,31 @@ if __name__ == "__main__":
         act_dim = env.action_space.sample().shape[0]
         discrete = False
 
-    population_size = 128
+    population_size = 256
 
-    hid_dim = [128]
+    hid_dim = [obs_dim]
     
     agent = HebbianLSTMAgent(obs_dim, act_dim, hid=hid_dim, \
             pop_size=population_size, discrete=discrete)
 
+    #agent.random_prune(prune_rate=0.125)
     obs = env.reset()
 
-    for gen in range(300):
+    try:
+        for gen in range(500):
 
-        fitness, total_steps = agent.get_fitness(env, epds=8)
-        sorted_fitness, num_elite,\
-            mean_connections, std_connections = agent.update_pop(fitness)
-        keep = 16 
-        agent.random_prune(prune_rate=0.05,keep=keep)
-        agent.population[0] = agent.elite_agent
+            fitness, total_steps = agent.get_fitness(env, epds=8)
+            sorted_fitness, num_elite,\
+                mean_connections, std_connections = agent.update_pop(fitness)
+            keep = 16 
+            agent.hebbian_prune(prune_rate=0.025)
+            agent.random_prune(prune_rate=0.025,keep=keep)
 
-        print(mean_connections, " +/- ", std_connections)
-        print("{} best/worst/average fitness: {:.3f}/{:.3f}/{:.3f}".format(\
-            gen, np.max(fitness), np.min(fitness), np.mean(fitness)))
-        gen += 1
+            print(mean_connections, " +/- ", std_connections)
+            print("{} best/worst/average fitness: {:.3f}/{:.3f}/{:.3f}".format(\
+                gen, np.max(fitness), np.min(fitness), np.mean(fitness)))
+            gen += 1
+    except KeyboardInterrupt:
+        pass
+    np.save("temp_lstm_weights_2.npy", agent.elite_pop)
+
