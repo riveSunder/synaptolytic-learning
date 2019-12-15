@@ -9,9 +9,9 @@ import pybullet
 import pybullet_envs
 
 
+
 def sigmoid(x):
     return np.exp(x) / (1 + np.exp(x))
-
 def sinc(x):
     return np.where(x == 0, 1.0, np.sin(x) / (1e-3+x))
 

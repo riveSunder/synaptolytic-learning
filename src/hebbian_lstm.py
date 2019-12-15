@@ -122,14 +122,15 @@ class HebbianLSTMAgent():
                 self.population[ii][jj] *= np.random.random((dim_x, dim_y)) \
                     > prune_rate
 
-    def hebbian_prune(self, prune_rate=0.01):
+    def hebbian_prune(self, prune_rate=0.01, keep=0):
 
-        for jj in range(self.pop_size):
+        for jj in range(keep,self.pop_size):
             for kk in range(1, len(self.population[jj])):
 
                 temp_layer = self.population[jj][kk]
 
-                prunes_per_layer = prune_rate * temp_layer.shape[0]*temp_layer.shape[1]
+                prunes_per_layer = prune_rate * temp_layer.shape[0]*temp_layer.shape[1]\
+                    /(1e-1+np.mean(temp_layer))
 
                 temp_layer *= 1.0 * (np.random.random((temp_layer.shape[0],\
                         temp_layer.shape[1])) > (softmax(-self.hebbian[jj][kk]) \
@@ -203,6 +204,7 @@ class HebbianLSTMAgent():
         while fitness_copy[0] > self.leaderboard[-1]:
             
             if fitness_copy[0] > self.leaderboard[lb_idx]:
+                print("adding agent to elite population")
                 self.leaderboard.insert(lb_idx, fitness_copy[0])
                 self.elite_pop.insert(lb_idx, self.population[sort_indices[fit_idx]])
                 fitness_copy.pop(0) 
@@ -238,7 +240,7 @@ class HebbianLSTMAgent():
 if __name__ == "__main__":
 
 
-    env_name = "InvertedPendulumBulletEnv-v0"
+    env_name = "BipedalWalker-v2"
 
     env = gym.make(env_name)
     print("make env", env_name)
@@ -252,9 +254,9 @@ if __name__ == "__main__":
         act_dim = env.action_space.sample().shape[0]
         discrete = False
 
-    population_size = 256
+    population_size = 512 
 
-    hid_dim = [obs_dim]
+    hid_dim = [64]
     
     agent = HebbianLSTMAgent(obs_dim, act_dim, hid=hid_dim, \
             pop_size=population_size, discrete=discrete)
@@ -263,14 +265,14 @@ if __name__ == "__main__":
     obs = env.reset()
 
     try:
-        for gen in range(500):
+        for gen in range(5000):
 
-            fitness, total_steps = agent.get_fitness(env, epds=8)
+            fitness, total_steps = agent.get_fitness(env, epds=2)
             sorted_fitness, num_elite,\
                 mean_connections, std_connections = agent.update_pop(fitness)
             keep = 16 
-            agent.hebbian_prune(prune_rate=0.025)
-            agent.random_prune(prune_rate=0.025,keep=keep)
+            agent.hebbian_prune(prune_rate=0.1025, keep=keep)
+            agent.random_prune(prune_rate=0.10,keep=keep)
 
             print(mean_connections, " +/- ", std_connections)
             print("{} best/worst/average fitness: {:.3f}/{:.3f}/{:.3f}".format(\
