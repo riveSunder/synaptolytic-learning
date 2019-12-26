@@ -42,9 +42,9 @@ class HebbianDAG():
         self.discrete = discrete
         self.best_gen = -float("Inf")
         self.best_agent = -float("Inf")
-        num_elite = int(pop_size *0.5)
+        self.keep = int(self.pop_size/8)
         self.elite_pop = []
-        self.leaderboard = [-float("Inf")] * num_elite
+        self.leaderboard = [-float("Inf")] * self.keep
         np.random.seed(self.seed)
 
         self.init_pop()
@@ -70,8 +70,8 @@ class HebbianDAG():
                             x_temp[np.newaxis,:]))
                 x += x_temp
 
-            #x = np.tanh(x-1)
-            x = sinc(x)
+            x = np.tanh(x-1)
+            #x = sinc(x)
             #x = np.sin(x)
 
             xs.append(x)
@@ -217,6 +217,7 @@ class HebbianDAG():
         #sorted_pop = self.population[sort_indices]
         
         connections = []
+
         for pop_idx in range(self.pop_size):
             connections.append(np.sum([[np.sum(layer) \
                     for layer in layer_layer] \
@@ -225,10 +226,10 @@ class HebbianDAG():
         mean_connections = np.mean(connections)
         std_connections = np.std(connections)
 
-        keep = int(np.ceil(0.5*self.pop_size))
-        if sorted_fitness[0] > self.best_agent:
+        keep = int(np.ceil(0.125*self.pop_size))
+        if sorted_fitness[0] >= self.best_agent:
             # keep best agent
-            print("new best elite agent: {} v {}".\
+            print("best elite agent: {} v {}".\
                     format(sorted_fitness[0], self.best_agent))
             self.elite_agent = self.population[sort_indices[0]]
             self.best_agent = sorted_fitness[0]
@@ -254,28 +255,23 @@ class HebbianDAG():
 
             if lb_idx > keep:
                 break
-        print("added {} agents to elite population".format(fit_idx))
+        print("added {} agents to leaderboard".format(fit_idx))
         self.leaderboard = self.leaderboard[:keep]
         self.elite_pop = self.elite_pop[:keep]
-#
-#        self.elite_pop = []
-#        self.elite_pop.append(self.elite_agent)
-#        for oo in range(keep):
-#            self.elite_pop.append(self.population[sort_indices[oo]])
-#        self.elite_pop = []
-#        self.elite_pop.append(self.elite_agent)
-#        for oo in range(keep):
-#            self.elite_pop.append(self.population[sort_indices[oo]])
+
+        #self.elite_pop = []
+        self.elite_pop.append(self.elite_agent)
+
+        for oo in range(keep):
+            self.elite_pop.insert(2*keep, self.population[sort_indices[oo]])
 
         self.population = []
         num_elite = len(self.elite_pop)
         p = np.arange(num_elite,0,-1) / np.sum(np.arange(num_elite,0,-1))
         a = np.arange(num_elite)
-
         for pp in range(self.pop_size):
             idx = np.random.choice(a,size=1,p=p)[0]
             self.population.append(copy.deepcopy(self.elite_pop[idx]))
-        
 
         elite_connections = 0.0
         for elite_idx in range(num_elite):
@@ -320,8 +316,7 @@ class HebbianDAG():
 
     def hebbian_prune2(self, prune_rate=0.001, \
             ll_rew=None, ll_done=None, ll_hebs=None):
-
-        keep = 8
+        keep = self.keep
         for jj in range(keep, self.pop_size):
             advantage = self.get_advantage(ll_rew[jj], ll_done[jj], gamma=0.5)
             num_layer_layers = len(self.population[jj])
@@ -344,11 +339,11 @@ class HebbianDAG():
                         self.population[jj][kk][ll] *= \
                             np.random.random((dim_x,dim_y)) \
                             > softmax(\
-                            advantage[mm] * ll_hebs[jj][mm][heb_idx]\
+                            -advantage[mm] * ll_hebs[jj][mm][heb_idx]\
                             ) * prunes_per_layer
 
                     heb_idx += 1
-                            
+        self.population[:self.keep] = self.elite_pop[:self.keep]
 
                        
 
@@ -382,7 +377,9 @@ class HebbianDAG():
                     temp_layer = self.population[jj][kk][ll]
                     
                     temp_layer *= np.random.random((temp_layer.shape[0],\
-                            temp_layer.shape[1])) > rate
+                            temp_layer.shape
+                            
+                            [1])) > rate
 
                     self.population[jj][kk][ll] = temp_layer
 
@@ -393,19 +390,20 @@ if __name__ == "__main__":
     save_every = 50
 
     hid_dims = {\
-            "CartPole-v1": [32,32],\
-            "InvertedPendulumBulletEnv-v0": [32],\
-            "InvertedPendulumSwingupBulletEnv-v0": [16,16],\
-            "InvertedDoublePendulumBulletEnv-v0": [16,16,16],\
+            "CartPole-v1": [16,16],\
+            "InvertedPendulumBulletEnv-v0": [16,16],\
+            "InvertedPendulumSwingupBulletEnv-v0": [32],\
+            "InvertedDoublePendulumBulletEnv-v0": [4,4,4,4],\
             "ReacherBulletEnv-v0": [16,16,16],\
-            "BipedalWalker-v2": [8,8,8,8],\
+            "BipedalWalker-v2": [4,4,4,4],\
             "Walker2DBulletEnv-v0": [32,32,32,32],\
             "HopperBulletEnv-v0": [32,32,32]}
 
     env_names = [\
-            "CartPole-v1",
-            "InvertedPendulumBulletEnv-v0",\
+#            "CartPole-v1",
+#            "InvertedPendulumBulletEnv-v0",\
             "InvertedPendulumSwingupBulletEnv-v0",\
+            "BipedalWalker-v2",\
             "ReacherBulletEnv-v0",\
             "InvertedDoublePendulumBulletEnv-v0"]
 #            "CartPole-v1",
@@ -419,9 +417,9 @@ if __name__ == "__main__":
     pop_size = {\
             "CartPole-v1": 64,\
             "BipedalWalker-v2": 32,\
-            "InvertedDoublePendulumBulletEnv-v0": 128,\
-            "InvertedPendulumBulletEnv-v0": 128,\
-            "InvertedPendulumSwingupBulletEnv-v0": 128,\
+            "InvertedDoublePendulumBulletEnv-v0": 64,\
+            "InvertedPendulumBulletEnv-v0": 64,\
+            "InvertedPendulumSwingupBulletEnv-v0": 64,\
             "HalfCheetahBulletEnv-v0": 256,\
             "HopperBulletEnv-v0": 256,\
             "ReacherBulletEnv-v0": 128,\
@@ -452,7 +450,7 @@ if __name__ == "__main__":
     res_dir = os.listdir("./results/")
     model_dir = os.listdir("./models/")
 
-    exp_dir = "exp007"
+    exp_dir = "exp009"
     exp_time = str(int(time.time()))[-7:]
     if exp_dir not in res_dir:
         os.mkdir("./results/"+exp_dir)
@@ -514,6 +512,7 @@ if __name__ == "__main__":
             total_total_steps = 0
             t0 = time.time()
             
+            #agent.mutate_pop(rate=0.35)
             for generation in range(max_generation[env_name]):
                 #if generation % 100 == 0: 
                 #    render = True
@@ -525,7 +524,7 @@ if __name__ == "__main__":
                 #fitness, total_steps = agent.get_fitness(env, render=render)
                 #total_total_steps += total_steps
                 
-                num_steps = 2.5e3
+                num_steps = 3.01e3
                 #agent.mutate_pop(rate=0.01)
                 ll_rew, ll_done, ll_hebs = agent.get_trajectory(num_steps)
                 fitness = [np.sum(rew)/(np.sum(dones)) \
@@ -540,7 +539,6 @@ if __name__ == "__main__":
                         for layer_layer in agent.elite_agent])
 
                 agent.hebbian_prune2(0.01, ll_rew, ll_done, ll_hebs)
-                #agent.mutate_pop(rate=0.035)
 
                 results["generation"].append(generation)
                 results["total_env_interacts"].append(total_total_steps)
@@ -578,18 +576,18 @@ if __name__ == "__main__":
                         mean_connections, std_connections))
 
                 if generation % save_every == 0:
-                    np.save("./results/{}/hebbian_dag_{}.npy"\
+                    np.save("./results/{}/hb_dag_{}.npy"\
                             .format(exp_dir, exp_id),results)
-                    np.save("./models/{}/hebbian_dag_{}_gen{}.npy"\
+                    np.save("./models/{}/hb_dag_{}_gen{}.npy"\
                             .format(exp_dir,exp_id, generation), agent.elite_pop)
 
                 if smooth_fit >= \
                         thresh_performance[env_name]\
                         and\
                         generation >= min_generations:
-                    np.save("./results/{}/hebbian_dag_{}.npy"\
+                    np.save("./results/{}/hb_dag_{}.npy"\
                             .format(exp_dir, exp_id),results)
-                    np.save("./models/{}/hebbian_dag_{}_gen{}.npy"\
+                    np.save("./models/{}/hb_dag_{}_gen{}.npy"\
                             .format(exp_dir,exp_id, generation), agent.elite_pop)
                     print("environment solved, ending training")
                     break
