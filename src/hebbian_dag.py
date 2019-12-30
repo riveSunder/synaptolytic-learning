@@ -26,8 +26,9 @@ def softmax(x):
 class HebbianDAG():
 
     def __init__(self, input_dim, act_dim, hid=[32,32],\
-            pop_size=10, seed=0, discrete=True):
+            pop_size=10, seed=0, discrete=True, random_init=True):
 
+        self.random_init = random_init
         self.input_dim = input_dim
         self.output_dim = act_dim #output_dim
         self.hid = hid
@@ -66,8 +67,8 @@ class HebbianDAG():
                         np.matmul(xs[jj][np.newaxis,:].T, x_temp[np.newaxis,:])
 
                 if get_hebs: 
-                    hebs.append(np.matmul(xs[jj][np.newaxis,:].T,\
-                            x_temp[np.newaxis,:]))
+                    hebs.append(np.abs(np.matmul(xs[jj][np.newaxis,:].T,\
+                            x_temp[np.newaxis,:])))
                 x += x_temp
 
             x = np.tanh(x-1)
@@ -296,8 +297,12 @@ class HebbianDAG():
 
                 for layer in range(layer_layer+1):
 
-                    layer_weights = np.ones((self.hid[layer], \
-                            self.hid[layer_layer+1])) 
+                    if self.random_init:
+                        layer_weights = np.random.randn(self.hid[layer],\
+                                self.hid[layer_layer+1])
+                    else:
+                        layer_weights = np.ones((self.hid[layer], \
+                                self.hid[layer_layer+1])) 
 
                     if layer == 0 and layer_layer != 0:
                         layers.append([layer_weights])
@@ -400,8 +405,8 @@ if __name__ == "__main__":
             "HopperBulletEnv-v0": [32,32,32]}
 
     env_names = [\
-#            "CartPole-v1",
-#            "InvertedPendulumBulletEnv-v0",\
+            "CartPole-v1",
+            "InvertedPendulumBulletEnv-v0",\
             "InvertedPendulumSwingupBulletEnv-v0",\
             "BipedalWalker-v2",\
             "ReacherBulletEnv-v0",\
@@ -450,7 +455,7 @@ if __name__ == "__main__":
     res_dir = os.listdir("./results/")
     model_dir = os.listdir("./models/")
 
-    exp_dir = "exp009"
+    exp_dir = "exp010"
     exp_time = str(int(time.time()))[-7:]
     if exp_dir not in res_dir:
         os.mkdir("./results/"+exp_dir)

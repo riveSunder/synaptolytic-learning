@@ -23,11 +23,12 @@ def softmax(x):
 class HebbianLSTMAgent():
     
     def __init__(self, input_dim, act_dim, hid=[32,32],\
-            pop_size=10, seed=0, discrete=True):
+            pop_size=10, seed=0, discrete=True, random_init=True):
 
         self.input_dim = input_dim
         self.output_dim = act_dim #output_dim
         self.hid = hid
+        self.random_init = random_init
         
         #self.hid.append(self.output_dim)
         #self.hid.insert(0,self.input_dim)
@@ -51,7 +52,7 @@ class HebbianLSTMAgent():
         np.random.seed(self.seed)
 
         self.init_pop()
-    
+   
 
     def get_action(self, obs, agent_idx=0, scaler=1.0, hebbian=True, enjoy=False):
         
@@ -90,19 +91,28 @@ class HebbianLSTMAgent():
        
     def init_pop(self, hebbian=True):
 
-        f_forget = np.ones(( self.input_dim + self.hid[0], self.hid[0] ))
-        i_input = np.ones(( self.input_dim + self.hid[0], self.hid[0] ))
-        j_input = np.ones(( self.input_dim + self.hid[0], self.hid[0] ))
-        o_output = np.ones(( self.input_dim + self.hid[0], self.hid[0] ))
-
-        a_action = np.ones(( self.hid[0], self.output_dim ))
-        cell_state = np.zeros((self.hid[0]))
+        if not (self.random_init):
+            f_forget = np.ones(( self.input_dim + self.hid[0], self.hid[0] ))
+            i_input = np.ones(( self.input_dim + self.hid[0], self.hid[0] ))
+            j_input = np.ones(( self.input_dim + self.hid[0], self.hid[0] ))
+            o_output = np.ones(( self.input_dim + self.hid[0], self.hid[0] ))
+            a_action = np.ones(( self.hid[0], self.output_dim ))
+            cell_state = np.zeros((self.hid[0]))
 
         self.population = []
         self.hebbian = []
 
 
         for ii in range(self.pop_size):
+            if self.random_init:
+
+                f_forget = np.random.randn( self.input_dim + self.hid[0], self.hid[0])
+                i_input = np.random.randn( self.input_dim + self.hid[0], self.hid[0] )
+                j_input = np.random.randn( self.input_dim + self.hid[0], self.hid[0] )
+                o_output = np.random.randn( self.input_dim + self.hid[0], self.hid[0] )
+
+                a_action = np.random.randn(self.hid[0], self.output_dim )
+                cell_state = np.zeros((self.hid[0]))
         
             self.population.append([np.copy(cell_state), np.copy(f_forget),\
                 np.copy(i_input),  np.copy(j_input), \
@@ -241,6 +251,7 @@ if __name__ == "__main__":
 
 
     env_name = "BipedalWalker-v2"
+    env_name = "InvertedPendulumBulletEnv-v0"
 
     env = gym.make(env_name)
     print("make env", env_name)
