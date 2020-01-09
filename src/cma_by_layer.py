@@ -38,9 +38,7 @@ class CMALayerAgent():
 
         for ii in range(len(self.hid_dim)):
             x = np.matmul(x, self.population[agent_idx][ii])
-            #x = sinc(x)
             x = np.tanh(x-1)
-            #x = np.sin(x)
 
         if self.discrete:
             x = (self.by + np.matmul(x, self.population[agent_idx][-1]))
@@ -211,30 +209,29 @@ class CMALayerAgent():
 if __name__ == "__main__":
 
     min_generations = 10
-    epds = 8
+    epds = 4 
     save_every = 50
 
     hid_dims = {\
             "InvertedPendulumBulletEnv-v0": [8],\
             "InvertedPendulumSwingupBulletEnv-v0": [16],\
             "InvertedDoublePendulumBulletEnv-v0": [16,16],\
+            "HalfCheetahBulletEnv-v0": [8,8],\
             "ReacherBulletEnv-v0": [16,16],\
             "Walker2DBulletEnv-v0": [16,16],\
             "HopperBulletEnv-v0": [32,32,32]}
 
     env_names = [\
-            "InvertedPendulumBulletEnv-v0",\
-            "InvertedDoublePendulumBulletEnv-v0",\
-            "InvertedPendulumSwingupBulletEnv-v0",\
-            "ReacherBulletEnv-v0",\
-            "Walker2DBulletEnv-v0"]
+            "HalfCheetahBulletEnv-v0"\
+            ]
+
 
     pop_size = {\
             "InvertedDoublePendulumBulletEnv-v0": 128,\
             "InvertedPendulumBulletEnv-v0": 128,\
             "InvertedPendulumSwingupBulletEnv-v0": 128,\
-            "HalfCheetahBulletEnv-v0": 256,\
-            "HopperBulletEnv-v0": 256,\
+            "HalfCheetahBulletEnv-v0": 96,\
+            "HopperBulletEnv-v0": 96,\
             "ReacherBulletEnv-v0": 128,\
             "Walker2DBulletEnv-v0": 256}
 
@@ -242,7 +239,7 @@ if __name__ == "__main__":
             "InvertedDoublePendulumBulletEnv-v0": 1999,\
             "InvertedPendulumBulletEnv-v0": 999.5,\
             "InvertedPendulumSwingupBulletEnv-v0": 880,\
-            "HalfCheetahBulletEnv-v0": 3000,\
+            "HalfCheetahBulletEnv-v0": 2100,\
             "HopperBulletEnv-v0": 3000,\
             "ReacherBulletEnv-v0": 200,\
             "Walker2DBulletEnv-v0": 2995}

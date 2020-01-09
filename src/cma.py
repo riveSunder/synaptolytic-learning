@@ -155,7 +155,7 @@ class CMAAgent():
 
         mean_cov += 1e-10 * np.eye(*mean_cov.shape)
         mean_cov = np.clip(mean_cov, 0.0, 1e2)
-        mean_params = np.clip(mean_params, 1e-3,1e3)
+        mean_params = np.clip(mean_params, -1e2,1e2)
 
         self.dist = [mean_params, mean_cov]
 
@@ -211,30 +211,34 @@ class CMAAgent():
             self.population.append(layers)
 
 
+        if self.best_agent > -float("Inf"): self.population.append(self.elite_agent)
+
+
+
 if __name__ == "__main__":
     min_generations = 10
-    epds = 8
+    epds = 4 
     save_every = 50
 
     hid_dims = {\
             "InvertedPendulumBulletEnv-v0": [8],\
             "InvertedPendulumSwingupBulletEnv-v0": [16],\
             "InvertedDoublePendulumBulletEnv-v0": [16,16],\
+            "HalfCheetahBulletEnv-v0": [8,8],\
             "ReacherBulletEnv-v0": [16,16],\
             "Walker2DBulletEnv-v0": [16,16],\
             "HopperBulletEnv-v0": [32,32,32]}
 
     env_names = [\
-            "InvertedPendulumBulletEnv-v0",\
-            "InvertedDoublePendulumBulletEnv-v0",\
             "InvertedPendulumSwingupBulletEnv-v0",\
-            "ReacherBulletEnv-v0",\
-            "Walker2DBulletEnv-v0"]
+            ]
+
+
     pop_size = {\
-            "InvertedDoublePendulumBulletEnv-v0": 128,\
+            "InvertedDoublePendulumBulletEnv-v0":128,\
             "InvertedPendulumBulletEnv-v0": 128,\
             "InvertedPendulumSwingupBulletEnv-v0": 128,\
-            "HalfCheetahBulletEnv-v0": 256,\
+            "HalfCheetahBulletEnv-v0": 128,\
             "HopperBulletEnv-v0": 256,\
             "ReacherBulletEnv-v0": 128,\
             "Walker2DBulletEnv-v0": 256}
@@ -243,7 +247,7 @@ if __name__ == "__main__":
             "InvertedDoublePendulumBulletEnv-v0": 1999,\
             "InvertedPendulumBulletEnv-v0": 999.5,\
             "InvertedPendulumSwingupBulletEnv-v0": 880,\
-            "HalfCheetahBulletEnv-v0": 3000,\
+            "HalfCheetahBulletEnv-v0": 2100,\
             "HopperBulletEnv-v0": 3000,\
             "ReacherBulletEnv-v0": 200,\
             "Walker2DBulletEnv-v0": 2995}
@@ -259,7 +263,7 @@ if __name__ == "__main__":
     res_dir = os.listdir("./results/")
     model_dir = os.listdir("./models/")
 
-    exp_dir = "exp007"
+    exp_dir = "exp666"
     exp_time = str(int(time.time()))[-7:]
     if exp_dir not in res_dir:
         os.mkdir("./results/"+exp_dir)
@@ -348,6 +352,7 @@ if __name__ == "__main__":
                 results["mean_agent_sum"].append(mean_connections)
                 results["std_agent_sum"].append(std_connections)
 
+                print("total steps: {}".format(total_total_steps))
                 print("cma gen {} elapsed {:.1f}/{:.1f}, mean/max/min fitness: {:.1f}/{:.1f}/{:.1f} elite mean/max/min {:.1f}/{:.1f}/{:.1f}/{:.1f}"\
                         .format(generation, time.time()-t1,\
                         results["wall_time"][-1],\
