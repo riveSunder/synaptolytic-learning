@@ -208,163 +208,12 @@ class CMAAgent():
 
             self.population.append(layers)
 
-def mantle_ish():
-    min_generations = 100
-    epds = 8
-    save_every = 50
-    hid_dim = [64]
 
-    env_names = [\
-            "InvertedPendulumBulletEnv-v0"]
-#            "InvertedPendulumSwingupBulletEnv-v0"]
-#            "InvertedDoublePendulumBulletEnv-v0"]
-#             "Walker2DBulletEnv-v0"]
-#            "InvertedPendulumSwingupBulletEnv-v0"]
-#            "ReacherBulletEnv-v0",\
-#            "HalfCheetahBulletEnv-v0"]
-
-    pop_size = {\
-            "InvertedDoublePendulumBulletEnv-v0": 128,\
-            "InvertedPendulumBulletEnv-v0": 128,\
-            "InvertedPendulumSwingupBulletEnv-v0": 256,\
-            "HalfCheetahBulletEnv-v0": 256,\
-            "ReacherBulletEnv-v0": 128,\
-            "Walker2DBulletEnv-v0": 128}
-
-    thresh_performance = {\
-            "InvertedDoublePendulumBulletEnv-v0": 1999.0,\
-            "InvertedPendulumBulletEnv-v0": 999.5,\
-            "InvertedPendulumSwingupBulletEnv-v0": 880,\
-            "HalfCheetahBulletEnv-v0": 3000,\
-            "ReacherBulletEnv-v0": 200,\
-            "Walker2DBulletEnv-v0": 3000}
-    max_generation = {\
-            "InvertedDoublePendulumBulletEnv-v0": 1024,\
-            "InvertedPendulumBulletEnv-v0": 1024,\
-            "InvertedPendulumSwingupBulletEnv-v0": 1024,\
-            "HalfCheetahBulletEnv-v0": 1024,\
-            "ReacherBulletEnv-v0": 1024,\
-            "Walker2DBulletEnv-v0": 1024}
-
-    res_dir = os.listdir("./results/")
-    model_dir = os.listdir("./models/")
-
-    exp_dir = "cma_32_exp004"
-    exp_time = str(int(time.time()))[-7:]
-    if exp_dir not in res_dir:
-        os.mkdir("./results/"+exp_dir)
-    if exp_dir not in model_dir:
-        os.mkdir("./models/"+exp_dir)
-
-    for my_seed in [2,1,0]:
-        np.random.seed(my_seed)
-        for env_name in env_names:
-
-            results = {"generation": [],\
-                    "total_env_interacts": [],\
-                    "wall_time": [],\
-                    "best_agent_fitness": [],\
-                    "pop_mean_fit": [],\
-                    "pop_std_fit": [],\
-                    "pop_max_fit": [],\
-                    "pop_min_fit": [],\
-                    "mean_agent_sum": [],\
-                    "std_agent_sum": [],\
-                    "elite_mean_fit": [],\
-                    "elite_std_fit": [],\
-                    "elite_min_fit": [],\
-                    "elite_max_fit": [],\
-                    "elite_agent_sum": []}
-
-            exp_id = "exp_" + exp_time + "env_" +\
-                    env_name + "_s" + str(my_seed)
-
-            # build env and agent population
-            if type(env_name) == str:
-                env = gym.make(env_name)
-                render = False
-            else:
-                env = env_name(render=False)
-
-            obs_dim = env.observation_space.shape[0]
-            try:
-                act_dim = env.action_space.n
-                discrete = True
-            except:
-                act_dim = env.action_space.sample().shape[0]
-                discrete = False
-
-            population_size = pop_size[env_name]
-            agent = CMAAgent(obs_dim, act_dim,\
-                    population_size, hid_dim=hid_dim, discrete=discrete)
-
-            t0 = time.time()
-            total_total_steps = 0
-            for generation in range(max_generation[env_name]):
-
-
-                t1 = time.time()
-                fitness, total_steps = agent.get_fitness(env, render=render,\
-                        epds=epds)
-                total_total_steps += total_steps
-                sorted_fitness, num_elite,\
-                        mean_connections, std_connections\
-                        = agent.update_pop(fitness)
-
-                connections = np.sum([np.sum(np.abs(layer)) for \
-                        layer in agent.elite_agent])
-
-                results["generation"].append(generation)
-                results["total_env_interacts"].append(total_total_steps)
-                results["wall_time"].append(time.time()-t0)
-                results["best_agent_fitness"].append(sorted_fitness[0])
-                results["pop_mean_fit"].append(np.mean(fitness))
-                results["pop_std_fit"].append(np.std(fitness))
-                results["pop_max_fit"].append(np.max(fitness))
-                results["pop_min_fit"].append(np.min(fitness))
-                results["elite_mean_fit"].append(np.mean(\
-                        sorted_fitness[:num_elite]))
-                results["elite_std_fit"].append(np.std(\
-                        sorted_fitness[:num_elite]))
-                results["elite_max_fit"].append(np.max(\
-                        sorted_fitness[:num_elite]))
-                results["elite_min_fit"].append(np.min(\
-                        sorted_fitness[:num_elite]))
-                results["elite_agent_sum"].append(connections)
-                results["mean_agent_sum"].append(mean_connections)
-                results["std_agent_sum"].append(std_connections)
-
-                print("gen {} elapsed {:.1f}/{:.1f}, mean/max/min fitness: {:.3f}/{:.3f}/{:.3f} elite mean/max/min {:.3f}/{:.3f}/{:.3f}"\
-                        .format(generation, time.time()-t1,\
-                        results["wall_time"][-1],\
-                        results["pop_mean_fit"][-1],\
-                        results["pop_max_fit"][-1],\
-                        results["pop_min_fit"][-1],\
-                        results["elite_mean_fit"][-1],\
-                        results["elite_max_fit"][-1],\
-                        results["elite_min_fit"][-1]))
-
-                if generation % save_every == 0:
-                    np.save("./results/{}/cma_{}.npy"\
-                            .format(exp_dir, exp_id),results)
-                    np.save("./models/{}/cma_elite_pop_{}_gen{}.npy"\
-                            .format(exp_dir,exp_id,generation),agent.elite_pop)
-
-                    if results["elite_max_fit"][-1] >= \
-                            thresh_performance[env_name]\
-                            and\
-                            generation >= min_generations:
-
-                        print("environment solved, ending training")
-                        break
-
-def mantle():
+def mantle(env_name):
     
 
     global rank, nWorker
-    hid_dim = [64]
-
-    env_name = "InvertedPendulumBulletEnv-v0"
+    hid_dim = [16]
     env = gym.make(env_name)
 
     obs_dim = env.observation_space.shape[0]
@@ -375,11 +224,11 @@ def mantle():
         act_dim = env.action_space.sample().shape[0]
         discrete = False
 
-    population_size = 256
+    population_size = 92
     agent = CMAAgent(obs_dim, act_dim,\
             population_size, hid_dim=hid_dim, discrete=discrete)
 
-    for generation in range(100):
+    for generation in range(10):
         bb = 0
         fitness = []
         total_steps =0
@@ -406,11 +255,9 @@ def mantle():
         print("send shutdown ", cc)
         comm.send(0, dest=cc)
 
-def arm():
+def arm(env_name):
 
-    hid_dim = [64]
-
-    env_name = "InvertedPendulumBulletEnv-v0"
+    hid_dim = [16]
     env = gym.make(env_name)
 
     obs_dim = env.observation_space.shape[0]
@@ -432,7 +279,7 @@ def arm():
             break
         agent.population = [my_policy]
 
-        fitness = agent.get_fitness(env, epds=8, render=False)
+        fitness = agent.get_fitness(env, epds=16, render=False)
 
         comm.send(fitness, dest=0)
 
@@ -470,10 +317,15 @@ if __name__ == "__main__":
                 "test mpi for running multiple policies")
     parser.add_argument('-n', '--num_workers', type=int, \
             help="number off cores to use, default 2", default=2)
+    parser.add_argument('-e', '--env_name', type=str,\
+            help="name of environment, default InvertedPendulumSwingupBulletEnv-v0", default="InvertedPendulumSwingupBulletEnv-v0")
+    #parser.add_argument('-h', '--hid_dims', type=list,\
+    #        help="hidden dims", default=[16])
 
     args = parser.parse_args()
 
     num_workers = args.num_workers
+    env_name = args.env_name
 
     #rank = comm.Get_rank()
     #nWorkers = comm.Get_size()
@@ -482,6 +334,6 @@ if __name__ == "__main__":
         os._exit(0)
 
     if rank == 0:
-        mantle()
+        mantle(env_name)
     else: 
-        arm()
+        arm(env_name)
