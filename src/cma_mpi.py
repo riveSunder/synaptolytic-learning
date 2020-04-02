@@ -210,10 +210,8 @@ class CMAAgent():
 
 
 def mantle(env_name):
-    
 
-    global rank, nWorker
-    hid_dim = [16]
+    hid_dim = [32]
     env = gym.make(env_name)
 
     obs_dim = env.observation_space.shape[0]
@@ -224,21 +222,23 @@ def mantle(env_name):
         act_dim = env.action_space.sample().shape[0]
         discrete = False
 
-    population_size = 92
+    population_size = 320
     agent = CMAAgent(obs_dim, act_dim,\
             population_size, hid_dim=hid_dim, discrete=discrete)
 
-    for generation in range(10):
+    for generation in range(200):
         bb = 0
         fitness = []
         total_steps =0
 
         t0 = time.time()
-        while bb < population_size - nWorker:
-            for cc in range(1,nWorker):
+        while bb <= population_size: # - nWorker:
+            pop_left = population_size - bb
+            for cc in range(1, min(nWorker, 1+pop_left)):
                 comm.send(agent.population[bb+cc-1], dest=cc)
             
-            for cc in range(1,nWorker):
+            for cc in range(1, min(nWorker, 1+pop_left)):
+                #comm.send(agent.population[bb+cc-1], dest=cc)
                 fit = comm.recv(source=cc)
                 fitness.extend(fit[0])
                 total_steps += fit[1]
@@ -257,7 +257,7 @@ def mantle(env_name):
 
 def arm(env_name):
 
-    hid_dim = [16]
+    hid_dim = [32]
     env = gym.make(env_name)
 
     obs_dim = env.observation_space.shape[0]

@@ -162,7 +162,7 @@ class PruneableAgent():
         mutation_rate = np.sqrt(elite_connections / num_elite)
         mutation_rate /= mean_connections
         #mutation_rate *= 0.995
-        mutation_rate = np.max([np.min([0.05, mutation_rate]), 0.001])
+        mutation_rate = np.max([np.min([0.0125, mutation_rate]), 0.001])
         self.population[:keep] = self.elite_pop
         return sorted_fitness, num_elite, mutation_rate, \
                 mean_connections, std_connections
@@ -239,12 +239,13 @@ def mantle(env_name):
         keep = 16
         agent.mutate_pop(keep=keep, rate=mutation_rate)
 
-        print("mean/std connections {:.2e}/{:.2e} ".format(mean_connections, std_connections), \
-                mutation_rate)
-        print("gen {} mean fitness {:.3f}/ max {:.3f} , time elapsed {:.3f}".format(\
-                generation, np.mean(fitness), np.max(fitness), time.time()-t0))
+        if generation % 10 == 0:
+            print("mean/std connections {:.2e}/{:.2e} ".format(mean_connections, std_connections), \
+                    mutation_rate)
+            print("gen {} mean fitness {:.3f}/ max {:.3f} , time elapsed {:.3f}".format(\
+                    generation, np.mean(fitness), np.max(fitness), time.time()-t0))
 
-    np.save("./best_agent.npy", agent.elite_agent)
+            np.save("./best_agent.npy", agent.elite_agent)
 
     print("time to compute fitness for pop {} on {} workers {:.3f}".format(\
             population_size, nWorker, time.time()-t0))

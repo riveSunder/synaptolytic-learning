@@ -163,6 +163,7 @@ class PruneableAgent():
         mutation_rate /= mean_connections
         #mutation_rate *= 0.995
         mutation_rate = np.max([np.min([0.125, mutation_rate]), 0.001])
+        
         return sorted_fitness, num_elite, mutation_rate, \
                 mean_connections, std_connections
 
@@ -196,14 +197,15 @@ class PruneableAgent():
 
 if __name__ == "__main__":
 
-    min_generations = 100
-    epds = 3
+    min_generations = 10
+    epds = 8
     save_every = 50
 
     hid_dim = 64
 
     env_names = [\
-             "Walker2DBulletEnv-v0"]
+            "InvertedPendulumBulletEnv-v0"]
+#             "Walker2DBulletEnv-v0"]
 #            "InvertedPendulumSwingupBulletEnv-v0"]
 #            "ReacherBulletEnv-v0",\
 #            "HalfCheetahBulletEnv-v0"]
@@ -216,7 +218,7 @@ if __name__ == "__main__":
             "Walker2DBulletEnv-v0": 128}
 
     thresh_performance = {\
-            "InvertedPendulumBulletEnv-v0": 999.5,\
+            "InvertedPendulumBulletEnv-v0": 999.,\
             "InvertedPendulumSwingupBulletEnv-v0": 880,\
             "HalfCheetahBulletEnv-v0": 3000,\
             "ReacherBulletEnv-v0": 200,\
