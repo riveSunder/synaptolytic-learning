@@ -195,7 +195,12 @@ class PruneableAgent():
 
                 self.population[jj][kk] = temp_layer
 
-def mantle(env_name):
+def mantle(args):
+
+    env_name = args.env_name
+    max_generations = args.max_generations
+    population_size = 320
+    disp_every = 100
 
     hid_dim = [64,64,64]
     
@@ -208,16 +213,16 @@ def mantle(env_name):
         act_dim = env.action_space.sample().shape[0]
         discrete = False
 
-    population_size = 320 
     agent = PruneableAgent(obs_dim, act_dim, hid_dim=hid_dim,\
             population_size=population_size, discrete=discrete)
 
-    for generation in range(20000):
+    t0 = time.time()
+    for generation in range(max_generations):
         bb = 0
         fitness = []
         total_steps =0
 
-        t0 = time.time()
+        t1 = time.time()
 
         while bb <= population_size: # - nWorker:
             pop_left = population_size - bb
@@ -239,13 +244,14 @@ def mantle(env_name):
         keep = 16
         agent.mutate_pop(keep=keep, rate=mutation_rate)
 
-        if generation % 10 == 0:
+        if generation % disp_every == 0:
             print("mean/std connections {:.2e}/{:.2e} ".format(mean_connections, std_connections), \
                     mutation_rate)
-            print("gen {} mean fitness {:.3f}/ max {:.3f} , time elapsed {:.3f}".format(\
-                    generation, np.mean(fitness), np.max(fitness), time.time()-t0))
+            print("gen {} mean fitness {:.3f}/ max {:.3f} , time elapsed/per gen {:.2f}/{:.2f}".\
+                    format(generation, np.mean(fitness), np.max(fitness),\
+                    time.time()-t0, (time.time() - t0)/(generation+1)))
 
-            np.save("./best_agent.npy", agent.elite_agent)
+            np.save("./syn_best_agent.npy", agent.elite_agent)
 
     print("time to compute fitness for pop {} on {} workers {:.3f}".format(\
             population_size, nWorker, time.time()-t0))
@@ -254,8 +260,11 @@ def mantle(env_name):
     data = 0
 
 
-def arm(env_name):
+def arm(args):
     
+    env_name = args.env_name
+    max_generations = args.max_generations
+
     hid_dim = [64,64,64]
     epds = 16
     env = gym.make(env_name) 
@@ -329,6 +338,8 @@ if __name__ == "__main__":
             help="number off cores to use, default 2", default=2)
     parser.add_argument('-e', '--env_name', type=str,\
             help="name of environment, default InvertedPendulumSwingupBulletEnv-v0", default="InvertedPendulumSwingupBulletEnv-v0")
+    parser.add_argument('-g', '--max_generations', type=int,\
+            help="training generations", default=10)
     #parser.add_argument('-h', '--hid_dims', type=list,\
     #        help="hidden dims", default=[16])
 
@@ -336,6 +347,7 @@ if __name__ == "__main__":
 
     num_workers = args.num_workers
     env_name = args.env_name
+    max_generations = args.max_generations
 
     #rank = comm.Get_rank()
     #nWorkers = comm.Get_size()
@@ -344,6 +356,6 @@ if __name__ == "__main__":
         os._exit(0)
 
     if rank == 0:
-        mantle(env_name)
+        mantle(args)
     else: 
-        arm(env_name)
+        arm(args)

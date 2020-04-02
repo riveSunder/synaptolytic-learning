@@ -213,6 +213,8 @@ def mantle(env_name):
 
     hid_dim = [32]
     env = gym.make(env_name)
+    population_size = 320
+    disp_every = 100
 
     obs_dim = env.observation_space.shape[0]
     try:
@@ -222,7 +224,6 @@ def mantle(env_name):
         act_dim = env.action_space.sample().shape[0]
         discrete = False
 
-    population_size = 320
     agent = CMAAgent(obs_dim, act_dim,\
             population_size, hid_dim=hid_dim, discrete=discrete)
 
@@ -246,8 +247,12 @@ def mantle(env_name):
             bb += cc
 
         agent.update_pop(fitness)
-        print("gen {} mean fitness {:.3f}/ max {:.3f} , time elapsed {:.3f}".format(\
-                generation, np.mean(fitness), np.max(fitness), time.time()-t0))
+        if generation % disp_every == 0:
+            print("gen {} mean fitness {:.3f}/ max {:.3f} , time elapsed/per gen {:.2f}/{:.2f}".\
+                    format(generation, np.mean(fitness), np.max(fitness),\
+                    time.time()-t0, (time.time() - t0)/(generation+1)))
+
+            np.save("./cma_best_agent.npy", agent.elite_agent)
 
     print("time to compute fitness for pop {} on {} workers {:.3f}".format(\
             population_size, nWorker, time.time()-t0))
