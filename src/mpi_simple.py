@@ -303,7 +303,17 @@ def mantle(args):
                     format(generation, np.mean(fitness), np.max(fitness),\
                     time.time()-t0, (time.time() - t0)/(generation+1)))
 
-            np.save("./syn_best_agent.npy", agent.elite_agent)
+            np.save("./syn_{}best_agent.npy".format(exp_id), agent.elite_agent)
+
+    np.save("./results/prunemk1_mpi_{}.npy"\
+            .format(exp_id), results)
+    print("mean/std connections {:.2e}/{:.2e} ".format(mean_connections, std_connections), \
+            mutation_rate)
+    print("gen {} mean fitness {:.3f}/ max {:.3f} , time elapsed/per gen {:.2f}/{:.2f}".\
+            format(generation, np.mean(fitness), np.max(fitness),\
+            time.time()-t0, (time.time() - t0)/(generation+1)))
+
+    np.save("./syn_{}best_agent.npy".format(exp_id), agent.elite_agent)
 
     print("time to compute fitness for pop {} on {} workers {:.3f}".format(\
             population_size, nWorker, time.time()-t0))

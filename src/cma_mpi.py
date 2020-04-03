@@ -213,11 +213,15 @@ def mantle(args):
     env_name = args.env_name
     max_generations = args.max_generations
 
-    hid_dim = [16,16]
+    hid_dim = [32,16]
 
     env = gym.make(env_name)
     population_size = 92
     disp_every = 100
+
+    exp_time = str(int(time.time()))[-7:]
+    exp_id = "exp_" + exp_time + "env_" +\
+            env_name + "_s" + str(my_seed)
 
     obs_dim = env.observation_space.shape[0]
     try:
@@ -300,7 +304,17 @@ def mantle(args):
                     format(generation, np.mean(fitness), np.max(fitness),\
                     time.time()-t0, (time.time() - t0)/(generation+1)))
 
-            np.save("./cma_best_agent.npy", agent.elite_agent)
+            np.save("./cma_{}best_agent.npy".format(exp_id), agent.elite_agent)
+            np.save("./results/cma_mpi_{}.npy"\
+                    .format(exp_id), results)
+
+    print("gen {} mean fitness {:.3f}/ max {:.3f} , time elapsed/per gen {:.2f}/{:.2f}".\
+            format(generation, np.mean(fitness), np.max(fitness),\
+            time.time()-t0, (time.time() - t0)/(generation+1)))
+
+    np.save("./cma_{}best_agent.npy".format(exp_id), agent.elite_agent)
+    np.save("./results/cma_mpi_{}.npy"\
+            .format(exp_id), results)
 
     print("time to compute fitness for pop {} on {} workers {:.3f}".format(\
             population_size, nWorker, time.time()-t0))
