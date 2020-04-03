@@ -208,7 +208,7 @@ def mantle(args):
     exp_id = "exp_" + exp_time + "env_" +\
             env_name + "_s" + str(my_seed)
 
-    hid_dim = [64,64,64]
+    hid_dim = [32]
     
     env = gym.make(env_name) 
     obs_dim = env.observation_space.shape[0]
@@ -317,7 +317,7 @@ def arm(args):
     env_name = args.env_name
     max_generations = args.max_generations
 
-    hid_dim = [64,64,64]
+    hid_dim = [32]
     epds = 16
     env = gym.make(env_name) 
 

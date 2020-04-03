@@ -209,11 +209,14 @@ class CMAAgent():
             self.population.append(layers)
 
 
-def mantle(env_name):
+def mantle(args):
+    env_name = args.env_name
+    max_generations = args.max_generations
 
-    hid_dim = [32]
+    hid_dim = [16,16]
+
     env = gym.make(env_name)
-    population_size = 320
+    population_size = 92
     disp_every = 100
 
     obs_dim = env.observation_space.shape[0]
@@ -227,7 +230,26 @@ def mantle(env_name):
     agent = CMAAgent(obs_dim, act_dim,\
             population_size, hid_dim=hid_dim, discrete=discrete)
 
-    for generation in range(200):
+    results = {"generation": [],\
+            "total_env_interacts": [],\
+            "wall_time": [],\
+            "prune_prob": [],\
+            "best_agent_fitness": [],\
+            "pop_mean_fit": [],\
+            "pop_std_fit": [],\
+            "pop_max_fit": [],\
+            "pop_min_fit": [],\
+            "mean_agent_sum": [],\
+            "std_agent_sum": [],\
+            "elite_mean_fit": [],\
+            "elite_std_fit": [],\
+            "elite_min_fit": [],\
+            "elite_max_fit": [],\
+            "elite_agent_sum": []}
+
+    total_total_steps = 0
+
+    for generation in range(max_generations):
         bb = 0
         fitness = []
         total_steps =0
@@ -246,7 +268,33 @@ def mantle(env_name):
 
             bb += cc
 
-        agent.update_pop(fitness)
+        total_total_steps += total_steps
+
+        sorted_fitness, num_elite,\
+                mean_connections, std_connections = agent.update_pop(fitness)
+
+        connections = np.sum([np.sum(layer) for layer in agent.elite_agent])
+
+        results["generation"].append(generation)
+        results["total_env_interacts"].append(total_total_steps)
+        results["wall_time"].append(time.time()-t0)
+        results["best_agent_fitness"].append(sorted_fitness[0])
+        results["pop_mean_fit"].append(np.mean(fitness))
+        results["pop_std_fit"].append(np.std(fitness))
+        results["pop_max_fit"].append(np.max(fitness))
+        results["pop_min_fit"].append(np.min(fitness))
+        results["elite_mean_fit"].append(np.mean(\
+                sorted_fitness[:num_elite]))
+        results["elite_std_fit"].append(np.std(\
+                sorted_fitness[:num_elite]))
+        results["elite_max_fit"].append(np.max(\
+                sorted_fitness[:num_elite]))
+        results["elite_min_fit"].append(np.min(\
+                sorted_fitness[:num_elite]))
+        results["elite_agent_sum"].append(connections)
+        results["mean_agent_sum"].append(mean_connections)
+        results["std_agent_sum"].append(std_connections)
+
         if generation % disp_every == 0:
             print("gen {} mean fitness {:.3f}/ max {:.3f} , time elapsed/per gen {:.2f}/{:.2f}".\
                     format(generation, np.mean(fitness), np.max(fitness),\
@@ -260,9 +308,11 @@ def mantle(env_name):
         print("send shutdown ", cc)
         comm.send(0, dest=cc)
 
-def arm(env_name):
+def arm(args):
 
-    hid_dim = [32]
+    env_name = args.env_name
+
+    hid_dim = [16,16]
     env = gym.make(env_name)
 
     obs_dim = env.observation_space.shape[0]
@@ -324,6 +374,8 @@ if __name__ == "__main__":
             help="number off cores to use, default 2", default=2)
     parser.add_argument('-e', '--env_name', type=str,\
             help="name of environment, default InvertedPendulumSwingupBulletEnv-v0", default="InvertedPendulumSwingupBulletEnv-v0")
+    parser.add_argument('-g', '--max_generations', type=int,\
+            help="training generations", default=10)
     #parser.add_argument('-h', '--hid_dims', type=list,\
     #        help="hidden dims", default=[16])
 
@@ -331,6 +383,7 @@ if __name__ == "__main__":
 
     num_workers = args.num_workers
     env_name = args.env_name
+    max_generations = args.max_generations
 
     #rank = comm.Get_rank()
     #nWorkers = comm.Get_size()
@@ -339,6 +392,6 @@ if __name__ == "__main__":
         os._exit(0)
 
     if rank == 0:
-        mantle(env_name)
+        mantle(args)
     else: 
-        arm(env_name)
+        arm(args)
