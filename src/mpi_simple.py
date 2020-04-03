@@ -201,6 +201,12 @@ def mantle(args):
     max_generations = args.max_generations
     population_size = 320
     disp_every = 100
+    my_seed = 0
+    np.random.seed(my_seed)
+
+    exp_time = str(int(time.time()))[-7:]
+    exp_id = "exp_" + exp_time + "env_" +\
+            env_name + "_s" + str(my_seed)
 
     hid_dim = [64,64,64]
     
@@ -217,6 +223,26 @@ def mantle(args):
             population_size=population_size, discrete=discrete)
 
     t0 = time.time()
+
+    results = {"generation": [],\
+            "total_env_interacts": [],\
+            "wall_time": [],\
+            "prune_prob": [],\
+            "best_agent_fitness": [],\
+            "pop_mean_fit": [],\
+            "pop_std_fit": [],\
+            "pop_max_fit": [],\
+            "pop_min_fit": [],\
+            "mean_agent_sum": [],\
+            "std_agent_sum": [],\
+            "elite_mean_fit": [],\
+            "elite_std_fit": [],\
+            "elite_min_fit": [],\
+            "elite_max_fit": [],\
+            "elite_agent_sum": []}
+
+    total_total_steps = 0
+
     for generation in range(max_generations):
         bb = 0
         fitness = []
@@ -236,15 +262,41 @@ def mantle(args):
                 total_steps += fit[1]
 
             bb += cc
-        print(nWorker, len(fitness), population_size, "***")
 
+        total_total_steps += total_steps
         sorted_fitness, num_elite, mutation_rate,\
                 mean_connections, std_connections = agent.update_pop(fitness)
 
         keep = 16
+
+        connections = np.sum([np.sum(layer) for layer in agent.elite_agent])
+
         agent.mutate_pop(keep=keep, rate=mutation_rate)
 
+        results["generation"].append(generation)
+        results["total_env_interacts"].append(total_total_steps)
+        results["wall_time"].append(time.time()-t0)
+        results["prune_prob"].append(mutation_rate)
+        results["best_agent_fitness"].append(sorted_fitness[0])
+        results["pop_mean_fit"].append(np.mean(fitness))
+        results["pop_std_fit"].append(np.std(fitness))
+        results["pop_max_fit"].append(np.max(fitness))
+        results["pop_min_fit"].append(np.min(fitness))
+        results["elite_mean_fit"].append(np.mean(\
+                sorted_fitness[:num_elite]))
+        results["elite_std_fit"].append(np.std(\
+                sorted_fitness[:num_elite]))
+        results["elite_max_fit"].append(np.max(\
+                sorted_fitness[:num_elite]))
+        results["elite_min_fit"].append(np.min(\
+                sorted_fitness[:num_elite]))
+        results["elite_agent_sum"].append(connections)
+        results["mean_agent_sum"].append(mean_connections)
+        results["std_agent_sum"].append(std_connections)
+
         if generation % disp_every == 0:
+            np.save("./results/prunemk1_mpi_{}.npy"\
+                    .format(exp_id), results)
             print("mean/std connections {:.2e}/{:.2e} ".format(mean_connections, std_connections), \
                     mutation_rate)
             print("gen {} mean fitness {:.3f}/ max {:.3f} , time elapsed/per gen {:.2f}/{:.2f}".\
