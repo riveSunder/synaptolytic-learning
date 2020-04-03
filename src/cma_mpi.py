@@ -219,6 +219,8 @@ def mantle(args):
     population_size = 92
     disp_every = 100
 
+    my_seed = 0
+    np.random.seed(my_seed)
     exp_time = str(int(time.time()))[-7:]
     exp_id = "exp_" + exp_time + "env_" +\
             env_name + "_s" + str(my_seed)
