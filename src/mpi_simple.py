@@ -19,6 +19,8 @@ comm = MPI.COMM_WORLD
 #rank = comm.Get_rank()
 #size = comm.Get_size()
 
+from hebbian_lstm import HebbianLSTMAgent
+
 class PruneableAgent():
 
     def __init__(self, input_dim, act_dim, hid_dim=[32,32,32],\
@@ -162,6 +164,9 @@ class PruneableAgent():
         mutation_rate = np.sqrt(elite_connections / num_elite)
         mutation_rate /= mean_connections
         #mutation_rate *= 0.995
+
+        agent.mutate_pop(keep=keep, rate=mutation_rate)
+
         mutation_rate = np.max([np.min([0.0125, mutation_rate]), 0.001])
         self.population[:keep] = self.elite_pop
         return sorted_fitness, num_elite, mutation_rate, \
@@ -219,8 +224,13 @@ def mantle(args):
         act_dim = env.action_space.sample().shape[0]
         discrete = False
 
-    agent = PruneableAgent(obs_dim, act_dim, hid_dim=hid_dim,\
-            population_size=population_size, discrete=discrete)
+    if "PruneabelAgent" in args.agent_type:
+        agent = PruneableAgent(obs_dim, act_dim, hid_dim=hid_dim,\
+                population_size=population_size, discrete=discrete)
+    elif "Hebbian" in args.agent_type and "LSTM" in args.agent_type:
+        hid_dim = [128]
+        agent = HebbianLSTMAgent(obs_dim, act_dim, hid_dim=hid_dim,\
+                population_size=population_size, seed=0, discrete=discrete)
 
     t0 = time.time()
 
@@ -264,19 +274,18 @@ def mantle(args):
             bb += cc
 
         total_total_steps += total_steps
-        sorted_fitness, num_elite, mutation_rate,\
+        sorted_fitness, num_elite,\
                 mean_connections, std_connections = agent.update_pop(fitness)
 
         keep = 16
 
         connections = np.sum([np.sum(layer) for layer in agent.elite_agent])
 
-        agent.mutate_pop(keep=keep, rate=mutation_rate)
 
         results["generation"].append(generation)
         results["total_env_interacts"].append(total_total_steps)
         results["wall_time"].append(time.time()-t0)
-        results["prune_prob"].append(mutation_rate)
+        results["prune_prob"].append(0.01)
         results["best_agent_fitness"].append(sorted_fitness[0])
         results["pop_mean_fit"].append(np.mean(fitness))
         results["pop_std_fit"].append(np.std(fitness))
@@ -297,8 +306,7 @@ def mantle(args):
         if generation % disp_every == 0:
             np.save("./results/prunemk1_mpi_{}.npy"\
                     .format(exp_id), results)
-            print("mean/std connections {:.2e}/{:.2e} ".format(mean_connections, std_connections), \
-                    mutation_rate)
+            print("mean/std connections {:.2e}/{:.2e} ".format(mean_connections, std_connections))
             print("gen {} mean fitness {:.3f}/ max {:.3f} , time elapsed/per gen {:.2f}/{:.2f}".\
                     format(generation, np.mean(fitness), np.max(fitness),\
                     time.time()-t0, (time.time() - t0)/(generation+1)))
@@ -307,8 +315,7 @@ def mantle(args):
 
     np.save("./results/prunemk1_mpi_{}.npy"\
             .format(exp_id), results)
-    print("mean/std connections {:.2e}/{:.2e} ".format(mean_connections, std_connections), \
-            mutation_rate)
+    print("mean/std connections {:.2e}/{:.2e} ".format(mean_connections, std_connections) )
     print("gen {} mean fitness {:.3f}/ max {:.3f} , time elapsed/per gen {:.2f}/{:.2f}".\
             format(generation, np.mean(fitness), np.max(fitness),\
             time.time()-t0, (time.time() - t0)/(generation+1)))
@@ -340,8 +347,13 @@ def arm(args):
         discrete = False
 
     population_size = 1
-    agent = PruneableAgent(obs_dim, act_dim,\
-            hid_dim=hid_dim, population_size=population_size, discrete=discrete)
+    if "PruneabelAgent" in args.agent_type:
+        agent = PruneableAgent(obs_dim, act_dim, hid_dim=hid_dim,\
+                population_size=population_size, discrete=discrete)
+    elif "Hebbian" in args.agent_type and "LSTM" in args.agent_type:
+        hid_dim = [128]
+        agent = HebbianLSTMAgent(obs_dim, act_dim, hid_dim=hid_dim,\
+                population_size=population_size, seed=0, discrete=discrete)
 
     while True:
 
@@ -384,14 +396,6 @@ def mpi_fork(n):
     #print('assigning the rank and nworkers', nWorker, rank)
     return "child"
 
-def main(argv):
-    
-    env_name = argv.env_name
-
-    if rank == 0:
-        mantle(env_name)
-    else: 
-        arm(env_name)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=\
@@ -402,6 +406,8 @@ if __name__ == "__main__":
             help="name of environment, default InvertedPendulumSwingupBulletEnv-v0", default="InvertedPendulumSwingupBulletEnv-v0")
     parser.add_argument('-g', '--max_generations', type=int,\
             help="training generations", default=10)
+    parser.add_argument('-a', '--agent_type', type=str,\
+            default="HebbianLSTMAgent")
     #parser.add_argument('-h', '--hid_dims', type=list,\
     #        help="hidden dims", default=[16])
 

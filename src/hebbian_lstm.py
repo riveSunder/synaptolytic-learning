@@ -22,18 +22,18 @@ def softmax(x):
 
 class HebbianLSTMAgent():
     
-    def __init__(self, input_dim, act_dim, hid=[32,32],\
-            pop_size=10, seed=0, discrete=True, random_init=True):
+    def __init__(self, input_dim, act_dim, hid_dim=[32,32],\
+            population_size=10, seed=0, discrete=True, random_init=True):
 
         self.input_dim = input_dim
         self.output_dim = act_dim #output_dim
-        self.hid = hid
+        self.hid = hid_dim
         self.random_init = random_init
         
         #self.hid.append(self.output_dim)
         #self.hid.insert(0,self.input_dim)
 
-        self.pop_size = pop_size
+        self.population_size = population_size
         self.seed = seed
         self.by = -0.00
 
@@ -44,7 +44,7 @@ class HebbianLSTMAgent():
         self.discrete = discrete
         
         elitism = 0.125
-        num_elite = int( elitism * pop_size )
+        num_elite = int( elitism * population_size )
         self.leaderboard = [-float("Inf")] * num_elite
         self.elite_pop = []
         self.best_gen = -float("Inf")
@@ -103,7 +103,7 @@ class HebbianLSTMAgent():
         self.hebbian = []
 
 
-        for ii in range(self.pop_size):
+        for ii in range(self.population_size):
             if self.random_init:
 
                 f_forget = np.random.randn( self.input_dim + self.hid[0], self.hid[0])
@@ -126,7 +126,7 @@ class HebbianLSTMAgent():
 
     def random_prune(self, prune_rate=0.01, keep=0):
 
-        for ii in range(keep, self.pop_size):
+        for ii in range(keep, self.population_size):
             for jj in range(1,len(self.population[ii])):
                 dim_x, dim_y = np.shape(self.population[ii][jj]) 
                 self.population[ii][jj] *= np.random.random((dim_x, dim_y)) \
@@ -134,7 +134,7 @@ class HebbianLSTMAgent():
 
     def hebbian_prune(self, prune_rate=0.01, keep=0):
 
-        for jj in range(keep,self.pop_size):
+        for jj in range(keep,self.population_size):
             for kk in range(1, len(self.population[jj])):
 
                 temp_layer = self.population[jj][kk]
@@ -191,14 +191,14 @@ class HebbianLSTMAgent():
         #sorted_pop = self.population[sort_indices]
         
         connections = []
-        for pop_idx in range(self.pop_size):
+        for pop_idx in range(self.population_size):
             connections.append(np.sum([np.sum(layer) \
                     for layer in self.population[pop_idx][1:]]))
 
         mean_connections = np.mean(connections)
         std_connections = np.std(connections)
 
-        keep = int(np.ceil(0.125*self.pop_size))
+        keep = int(np.ceil(0.125*self.population_size))
 
         if sorted_fitness[0] > self.best_agent:
             # keep best agent
@@ -209,12 +209,13 @@ class HebbianLSTMAgent():
 
         lb_idx = 0 
         fit_idx = 0
+        total_added = 0
         fitness_copy = list(copy.deepcopy(sorted_fitness))
 
         while fitness_copy[0] > self.leaderboard[-1]:
             
             if fitness_copy[0] > self.leaderboard[lb_idx]:
-                print("adding agent to elite population")
+                total_added +=1
                 self.leaderboard.insert(lb_idx, fitness_copy[0])
                 self.elite_pop.insert(lb_idx, self.population[sort_indices[fit_idx]])
                 fitness_copy.pop(0) 
@@ -223,6 +224,8 @@ class HebbianLSTMAgent():
 
             if lb_idx > keep:
                 break
+        
+        print("added {} agents to elite population".format(total_added))
         self.leaderboard = self.leaderboard[:keep]
         self.elite_pop = self.elite_pop[:keep]
             
@@ -238,10 +241,13 @@ class HebbianLSTMAgent():
         p = np.arange(num_elite,0,-1) / np.sum(np.arange(num_elite,0,-1))
         a = np.arange(num_elite)
 
-        for pp in range(self.pop_size):
+        for pp in range(self.population_size):
             idx = np.random.choice(a,size=1,p=p)[0]
             self.population.append(copy.deepcopy(self.elite_pop[idx]))
         
+
+        self.random_prune(prune_rate=0.01, keep=2)
+
         return sorted_fitness, num_elite, \
                 mean_connections, std_connections
 
@@ -270,7 +276,7 @@ if __name__ == "__main__":
     hid_dim = [64]
     
     agent = HebbianLSTMAgent(obs_dim, act_dim, hid=hid_dim, \
-            pop_size=population_size, discrete=discrete)
+            population_size=population_size, discrete=discrete)
 
     #agent.random_prune(prune_rate=0.125)
     obs = env.reset()
