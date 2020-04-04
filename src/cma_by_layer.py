@@ -12,7 +12,7 @@ from pybullet_envs.bullet import MinitaurBulletEnv
 def sinc(x):
     return np.where(x == 0, 1.0, np.sin(x) / (1e-3+x))
 
-class CMAAgent():
+class CMALayerAgent():
     def __init__(self, obs_dim, act_dim, population_size, \
             seed=0, hid_dim=[16], discrete=False):
 
@@ -38,15 +38,13 @@ class CMAAgent():
 
         for ii in range(len(self.hid_dim)):
             x = np.matmul(x, self.population[agent_idx][ii])
-            #x = sinc(x)
             x = np.tanh(x-1)
-            #x = np.sin(x)
 
         if self.discrete:
-            x = ( np.matmul(x, self.population[agent_idx][-1]))
+            x = (self.by + np.matmul(x, self.population[agent_idx][-1]))
             #x = np.where(x > 0.5, 1, 0) 
         else:
-            x =  np.matmul(x, self.population[agent_idx][-1])
+            x = self.by + np.matmul(x, self.population[agent_idx][-1])
 
         if self.discrete:
             x = softmax(x)
@@ -107,7 +105,7 @@ class CMAAgent():
             self.elite_agent = self.population[sort_indices[0]]
             self.best_agent = sorted_fitness[0]
 
-        if np.mean(sorted_fitness[:keep]) >  self.best_gen:
+        if np.mean(sorted_fitness[:keep]) > self.best_gen:
             # keep best elite population
             print("new best elite population: {:.2f} v {:.2f}".\
                     format(np.mean(sorted_fitness[:keep]), self.best_gen))
@@ -118,46 +116,41 @@ class CMAAgent():
         for oo in range(keep):
             self.elite_pop.append(self.population[sort_indices[oo]])
 
+        self.population = []
         num_elite = len(self.elite_pop)
 
         # update parameters
         step_size = 1.0
         
-        for gg in range(self.population_size):
-            for hh in range(len(self.hid_dim)+1):            
-                if hh == 0:
-                    temp_params = self.population[gg][hh].ravel()[np.newaxis,:]
-                else:
-                    temp_params = np.append(temp_params, self.population[gg][hh].ravel()\
-                        [np.newaxis,:], axis=1 )
-
-            if gg == 0:
-                params = temp_params
+        for hh in range(len(self.layer_dist)-1):            
+            if hh == 0:
+                i_range = self.obs_dim * self.hid_dim[0]
+                sum_layer = np.zeros( self.obs_dim * self.hid_dim[0])
+                sum_cov = np.zeros(( self.obs_dim * self.hid_dim[0] ,\
+                    self.obs_dim * self.hid_dim[-1] ))
+            elif hh == (len(self.hid_dim)):
+                i_range = self.hid_dim[-1] * self.act_dim
+                sum_layer = np.zeros( self.act_dim * self.hid_dim[-1] )
+                sum_cov = np.zeros(( self.act_dim * self.hid_dim[-1] ,\
+                    self.act_dim * self.hid_dim[-1] ))
             else:
-                params = np.append( params, temp_params, axis=0 )
+                i_range = self.hid_dim[hh] * self.hid_dim[hh-1]
+                sum_layer = np.zeros( self.hid_dim[hh] * self.hid_dim[hh-1] )
+                sum_cov = np.zeros(( self.hid_dim[hh]  * self.hid_dim[hh-1] ,\
+                    self.hid_dim[hh] * self.hid_dim[hh-1]) )
+            for gg in range(num_elite):
+                
 
-        for gg in range(num_elite):
-            for hh in range(len(self.hid_dim)+1):            
-                if hh == 0:
-                    temp_params = self.population[gg][hh].ravel()[np.newaxis,:]
-                else:
-                    temp_params = np.append( temp_params, self.population[gg][hh].ravel()\
-                        [np.newaxis,:], axis=1 )
+                sum_layer += self.elite_pop[gg][hh].ravel()
+                
+                temp_x0 = self.elite_pop[gg][hh].ravel() - self.layer_dist[hh][0]
+                sum_cov += np.matmul(temp_x0[np.newaxis,:].T,\
+                        temp_x0[np.newaxis,:])
 
-            if gg == 0:
-                elite_params = temp_params
-            else:
-                elite_params = np.append( elite_params, temp_params, axis=0 )
+            mean_layer = sum_layer / num_elite
+            mean_cov = sum_cov / num_elite
 
-        mean_params = np.mean(params, axis=0)
-        mean_cov = np.matmul(( elite_params - self.dist[0]).T,\
-                (elite_params-self.dist[0]) )
-
-        mean_cov += 1e-10 * np.eye(*mean_cov.shape)
-        mean_cov = np.clip(mean_cov, 0.0, 1e2)
-        mean_params = np.clip(mean_params, -1e2,1e2)
-
-        self.dist = [mean_params, mean_cov]
+            self.layer_dist[hh] = [mean_layer, mean_cov]
 
         self.init_pop()
         self.population[-1] = self.elite_agent
@@ -166,58 +159,57 @@ class CMAAgent():
                 mean_connections, std_connections
 
     def init_dist(self):
+        self.layer_dist = []
+    
+        # input to hidden layer distribution
 
-        num_params = self.obs_dim * self.hid_dim[0]
-        num_params += int(np.sum([self.hid_dim[ii] * self.hid_dim[ii+1] \
-                for ii in range(len(self.hid_dim)-1)]))
-        num_params += self.act_dim * self.hid_dim[-1]
+        layer_mew = np.zeros((self.obs_dim * self.hid_dim[0]))
+        layer_cov = np.eye(self.obs_dim * self.hid_dim[0]) 
 
-        if num_params >= 500:
-            print("Warning: You got a lot of params ({}), CMA will be slow"\
-                    .format(num_params))
+        self.layer_dist.append([layer_mew, layer_cov])
 
-        dist_mean = np.zeros((num_params))
-        dist_cov = np.eye(num_params)
-        self.dist = [dist_mean, dist_cov]
+        # hidden layers distribution
+        for ii in range(len(self.hid_dim)-1):
+            layer_mew = np.zeros((self.hid_dim[ii] * self.hid_dim[ii+1]))
+            layer_cov = np.eye(self.hid_dim[ii] * self.hid_dim[ii+1])
+
+            self.layer_dist.append([layer_mew, layer_cov])
+
+        #output layer
+        layer_mew = np.zeros((self.hid_dim[-1] * self.act_dim))
+        layer_cov = np.eye(self.hid_dim[-1] * self.act_dim)
+        self.layer_dist.append([layer_mew, layer_cov])
 
     def init_pop(self):
-
         self.population = []
 
         for hh in range(self.population_size):
-            params = np.random.multivariate_normal(self.dist[0], self.dist[1])
-
             layers = []
-            for layer_idx in range(len(self.hid_dim)+1):
-                
-                if layer_idx == 0:
-                    start_idx = 0
-                    dim_x = self.obs_dim 
-                    dim_y = self.hid_dim[0]
-                elif layer_idx == len(self.hid_dim):
-                    start_idx = end_idx
-                    dim_x = self.hid_dim[-1]
-                    dim_y = self.act_dim
-                else:
-                    start_idx = end_idx
-                    dim_x = self.hid_dim[layer_idx-1]
-                    dim_y = self.hid_dim[layer_idx]
-                end_idx = start_idx+ dim_x * dim_y
+            layer = np.random.multivariate_normal(self.layer_dist[0][0], \
+                    self.layer_dist[0][1]).reshape(self.obs_dim, self.hid_dim[0])
 
-                layer = params[start_idx:end_idx].reshape(dim_x,dim_y)
-                    
+            layers.append(layer)
+
+            for ii in range(1,len(self.hid_dim)):
+                layer = np.random.multivariate_normal(self.layer_dist[ii][0], \
+                        self.layer_dist[ii][1]).reshape(self.hid_dim[ii-1], \
+                        self.hid_dim[ii])
+
                 layers.append(layer)
 
+
+            layer = np.random.multivariate_normal(self.layer_dist[-1][0], \
+                    self.layer_dist[-1][1]).reshape(self.hid_dim[-1], self.act_dim)
+
+            layers.append(layer)
             self.population.append(layers)
-
-
-        if self.best_agent > -float("Inf"): self.population.append(self.elite_agent)
 
 
 
 if __name__ == "__main__":
+
     min_generations = 10
-    epds = 8 
+    epds = 4 
     save_every = 50
 
     hid_dims = {\
@@ -230,25 +222,22 @@ if __name__ == "__main__":
             "HopperBulletEnv-v0": [32,32,32]}
 
     env_names = [\
-            "InvertedPendulumBulletEnv-v0"]
-#             "Walker2DBulletEnv-v0"]
-#            "InvertedPendulumSwingupBulletEnv-v0"]
-#            "ReacherBulletEnv-v0",\
-#            "HalfCheetahBulletEnv-v0"]
+            "HalfCheetahBulletEnv-v0"\
+            ]
 
 
     pop_size = {\
-            "InvertedDoublePendulumBulletEnv-v0":128,\
+            "InvertedDoublePendulumBulletEnv-v0": 128,\
             "InvertedPendulumBulletEnv-v0": 128,\
             "InvertedPendulumSwingupBulletEnv-v0": 128,\
-            "HalfCheetahBulletEnv-v0": 128,\
-            "HopperBulletEnv-v0": 256,\
+            "HalfCheetahBulletEnv-v0": 96,\
+            "HopperBulletEnv-v0": 96,\
             "ReacherBulletEnv-v0": 128,\
             "Walker2DBulletEnv-v0": 256}
 
     thresh_performance = {\
-            "InvertedPendulumBulletEnv-v0": 999.,\
             "InvertedDoublePendulumBulletEnv-v0": 1999,\
+            "InvertedPendulumBulletEnv-v0": 999.5,\
             "InvertedPendulumSwingupBulletEnv-v0": 880,\
             "HalfCheetahBulletEnv-v0": 2100,\
             "HopperBulletEnv-v0": 3000,\
@@ -263,10 +252,11 @@ if __name__ == "__main__":
             "HopperBulletEnv-v0": 1024,\
             "ReacherBulletEnv-v0": 1024,\
             "Walker2DBulletEnv-v0": 2048}
+
     res_dir = os.listdir("./results/")
     model_dir = os.listdir("./models/")
 
-    exp_dir = "exp666"
+    exp_dir = "exp007"
     exp_time = str(int(time.time()))[-7:]
     if exp_dir not in res_dir:
         os.mkdir("./results/"+exp_dir)
@@ -278,8 +268,10 @@ if __name__ == "__main__":
     for my_seed in [2,1,0]:
         np.random.seed(my_seed)
         for env_name in env_names:
-
             hid_dim = hid_dims[env_name]
+
+
+
             results = {"generation": [],\
                     "total_env_interacts": [],\
                     "wall_time": [],\
@@ -316,7 +308,7 @@ if __name__ == "__main__":
 
             print("make env", env_name)
             population_size = pop_size[env_name]
-            agent = CMAAgent(obs_dim, act_dim,\
+            agent = CMALayerAgent(obs_dim, act_dim,\
                     population_size, hid_dim=hid_dim, discrete=discrete)
 
             t0 = time.time()
@@ -324,7 +316,6 @@ if __name__ == "__main__":
             for generation in range(max_generation[env_name]):
 
 
-                t1 = time.time()
                 fitness, total_steps = agent.get_fitness(env, render=render,\
                         epds=epds)
                 total_total_steps += total_steps
@@ -355,10 +346,9 @@ if __name__ == "__main__":
                 results["mean_agent_sum"].append(mean_connections)
                 results["std_agent_sum"].append(std_connections)
 
-                print("total steps: {}".format(total_total_steps))
-                print("cma gen {} elapsed {:.1f}/{:.1f}, mean/max/min fitness: {:.1f}/{:.1f}/{:.1f} elite mean/max/min {:.1f}/{:.1f}/{:.1f}/{:.1f}"\
-                        .format(generation, time.time()-t1,\
-                        results["wall_time"][-1],\
+                smooth_fit = alpha * smooth_fit + ( 1-alpha ) * results["elite_max_fit"][-1]
+                print("cma bl gen {} elapsed {:.1f}, mean/max/min fitness: {:.1f}/{:.1f}/{:.1f} elite mean/max/min {:.1f}{:.1f}/{:.1f}/{:.1f}"\
+                        .format(generation, results["wall_time"][-1],\
                         results["pop_mean_fit"][-1],\
                         results["pop_max_fit"][-1],\
                         results["pop_min_fit"][-1],\
@@ -368,19 +358,19 @@ if __name__ == "__main__":
                         results["elite_min_fit"][-1]))
 
                 if generation % save_every == 0:
-                    np.save("./results/{}/cma_{}.npy"\
+                    np.save("./results/{}/cma_bl_{}.npy"\
                             .format(exp_dir, exp_id),results)
-                    np.save("./models/{}/cma_{}_gen{}.npy"\
+                    np.save("./models/{}/cma_bl_{}_gen{}.npy"\
                             .format(exp_dir,exp_id,generation),agent.elite_pop)
 
-                smooth_fit = alpha * smooth_fit + ( 1-alpha ) * results["elite_max_fit"][-1]
                 if smooth_fit >= \
                         thresh_performance[env_name]\
                         and\
                         generation >= min_generations:
-                    np.save("./results/{}/cma_{}.npy"\
+
+                    np.save("./results/{}/cma_bl_{}.npy"\
                             .format(exp_dir, exp_id),results)
-                    np.save("./models/{}/cma_{}_gen{}.npy"\
+                    np.save("./models/{}/cma_bl_{}_gen{}.npy"\
                             .format(exp_dir,exp_id, generation), agent.elite_pop)
                     print("environment solved, ending training")
                     break
