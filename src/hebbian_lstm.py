@@ -246,7 +246,8 @@ class HebbianLSTMAgent():
             self.population.append(copy.deepcopy(self.elite_pop[idx]))
         
 
-        self.random_prune(prune_rate=0.01, keep=2)
+        #self.random_prune(prune_rate=0.01, keep=2)
+        self.hebbian_prune(prune_rate=0.01, keep=2)
 
         return sorted_fitness, num_elite, \
                 mean_connections, std_connections

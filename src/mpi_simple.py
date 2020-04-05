@@ -20,6 +20,7 @@ comm = MPI.COMM_WORLD
 #size = comm.Get_size()
 
 from hebbian_lstm import HebbianLSTMAgent
+from hebbian_dag import HebbianDAG 
 
 class PruneableAgent():
 
@@ -204,7 +205,8 @@ def mantle(args):
 
     env_name = args.env_name
     max_generations = args.max_generations
-    population_size = 320
+    population_size = args.population_size
+
     disp_every = 100
     my_seed = 0
     np.random.seed(my_seed)
@@ -231,6 +233,11 @@ def mantle(args):
         hid_dim = [128]
         agent = HebbianLSTMAgent(obs_dim, act_dim, hid_dim=hid_dim,\
                 population_size=population_size, seed=0, discrete=discrete)
+    elif "HebbianDAG" in args.agent_type:
+        hid_dim = [256,128]
+        agent = HebbianDAG(obs_dim, act_dim, hid_dim=hid_dim,\
+                population_size=population_size, seed=0, discrete=discrete)
+
 
     t0 = time.time()
 
@@ -279,7 +286,7 @@ def mantle(args):
 
         keep = 16
 
-        connections = np.sum([np.sum(layer) for layer in agent.elite_agent])
+        connections = mean_connections #np.sum([np.sum(layer) for layer in agent.elite_agent])
 
 
         results["generation"].append(generation)
@@ -354,6 +361,10 @@ def arm(args):
         hid_dim = [128]
         agent = HebbianLSTMAgent(obs_dim, act_dim, hid_dim=hid_dim,\
                 population_size=population_size, seed=0, discrete=discrete)
+    elif "HebbianDAG" in args.agent_type:
+        hid_dim = [256,128]
+        agent = HebbianDAG(obs_dim, act_dim, hid_dim=hid_dim,\
+                population_size=population_size, seed=0, discrete=discrete)
 
     while True:
 
@@ -408,6 +419,8 @@ if __name__ == "__main__":
             help="training generations", default=10)
     parser.add_argument('-a', '--agent_type', type=str,\
             default="HebbianLSTMAgent")
+    parser.add_argument('-p', '--population_size', type=int,\
+            help="number of agents in a population", default=92)
     #parser.add_argument('-h', '--hid_dims', type=list,\
     #        help="hidden dims", default=[16])
 
