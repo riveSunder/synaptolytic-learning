@@ -234,7 +234,7 @@ def mantle(args):
         agent = HebbianLSTMAgent(obs_dim, act_dim, hid_dim=hid_dim,\
                 population_size=population_size, seed=0, discrete=discrete)
     elif "HebbianDAG" in args.agent_type:
-        hid_dim = [256,128]
+        hid_dim = [128,128,128]
         agent = HebbianDAG(obs_dim, act_dim, hid_dim=hid_dim,\
                 population_size=population_size, seed=0, discrete=discrete)
 
@@ -318,7 +318,7 @@ def mantle(args):
                     format(generation, np.mean(fitness), np.max(fitness),\
                     time.time()-t0, (time.time() - t0)/(generation+1)))
 
-            np.save("./syn_{}best_agent.npy".format(exp_id), agent.elite_agent)
+            np.save("./syn_{}best_agents.npy".format(exp_id), agent.elite_pop)
 
     np.save("./results/prunemk1_mpi_{}.npy"\
             .format(exp_id), results)
@@ -326,6 +326,7 @@ def mantle(args):
     print("gen {} mean fitness {:.3f}/ max {:.3f} , time elapsed/per gen {:.2f}/{:.2f}".\
             format(generation, np.mean(fitness), np.max(fitness),\
             time.time()-t0, (time.time() - t0)/(generation+1)))
+    np.save("./syn_{}best_agents.npy".format(exp_id), agent.elite_pop)
 
     np.save("./syn_{}best_agent.npy".format(exp_id), agent.elite_agent)
 
@@ -362,7 +363,7 @@ def arm(args):
         agent = HebbianLSTMAgent(obs_dim, act_dim, hid_dim=hid_dim,\
                 population_size=population_size, seed=0, discrete=discrete)
     elif "HebbianDAG" in args.agent_type:
-        hid_dim = [256,128]
+        hid_dim = [128,128,128]
         agent = HebbianDAG(obs_dim, act_dim, hid_dim=hid_dim,\
                 population_size=population_size, seed=0, discrete=discrete)
 

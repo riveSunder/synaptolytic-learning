@@ -1,4 +1,3 @@
-
 import numpy as np
 import gym 
 import matplotlib.pyplot as plt
@@ -245,6 +244,19 @@ class HebbianLSTMAgent():
             idx = np.random.choice(a,size=1,p=p)[0]
             self.population.append(copy.deepcopy(self.elite_pop[idx]))
         
+        recombine = True
+        num_recombinations = num_elite * 2
+        if recombine:
+            for ll in range(num_elite):
+                agent_0 = np.random.randint(population_size)
+                agent_1 = np.random.randint(population_size)
+
+                swap_gate = np.random.randint(4)
+
+                self.population[agent_0][swap_gate], self.population[agent_1][swap_gat] \
+                        = self.population[agent_1][swap_gate], self.population[agent_0][swap_gat] \
+
+
 
         #self.random_prune(prune_rate=0.01, keep=2)
         self.hebbian_prune(prune_rate=0.01, keep=2)

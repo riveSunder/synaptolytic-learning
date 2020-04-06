@@ -26,8 +26,9 @@ def softmax(x):
 class HebbianDAG():
 
     def __init__(self, input_dim, act_dim, hid_dim=[32,32],\
-            population_size=10, seed=0, discrete=True, random_init=True):
+            population_size=10, seed=0, discrete=True, random_init=True, neuromodulate=True):
 
+        self.neuromodulate = neuromodulate
         self.random_init = random_init
         self.input_dim = input_dim
         self.output_dim = act_dim #output_dim
@@ -49,20 +50,29 @@ class HebbianDAG():
         np.random.seed(self.seed)
 
         self.init_pop()
-        #self.mutate_pop(rate=0.25)
+        self.mutate_pop(rate=0.025)
+        
 
     def get_action(self, obs, agent_idx=0, scaler=1.0, enjoy=False, \
-            get_hebs=False):
+            get_hebs=False, neuromodulate=True):
 
         x = obs        
         xs = [x]
-        
+        modulation = 0.0
+
+        neuromodulate = self.neuromodulate
+
         if get_hebs: hebs = []
         for ii in range(len(self.hid_dim)-1):
             x = np.zeros((self.hid_dim[ii+1]))
             for jj in range(ii+1):
 
-                x_temp = np.matmul(xs[jj], self.population[agent_idx][ii][jj])
+                if neuromodulate:
+                    x_temp = np.matmul(xs[jj], self.population[agent_idx][ii][jj]\
+                            + self.hebbian[agent_idx][ii][jj] * modulation)
+                else:
+                    x_temp = np.matmul(xs[jj], self.population[agent_idx][ii][jj])
+
                 self.hebbian[agent_idx][ii][jj] += \
                         np.matmul(xs[jj][np.newaxis,:].T, x_temp[np.newaxis,:])
 
@@ -71,16 +81,18 @@ class HebbianDAG():
                             x_temp[np.newaxis,:])))
                 x += x_temp
 
-            x = np.tanh(x-1)
-            #x = sinc(x)
-            #x = np.sin(x)
+            if jj == len(self.hid_dim)-1:
+                modulation = x[0]
+
+            if ii < len(self.hid_dim):
+                x = np.tanh(x)
 
             xs.append(x)
             #x[x<0] = 0 # relu
 
 #
 #        for ii in range(len(self.hid_dim)-1):
-#            x = np.zeros((self.hid_dim[ii+1]))
+#           x = np.zeros((self.hid_dim[ii+1]))
 #            for jj in range(ii+1):
 #                
 #
@@ -274,6 +286,29 @@ class HebbianDAG():
             idx = np.random.choice(a,size=1,p=p)[0]
             self.population.append(copy.deepcopy(self.elite_pop[idx]))
 
+
+        
+        recombine = True
+        num_swaps = keep
+
+        if(recombine):
+            for ll in range(num_swaps):
+                agent_0 = np.random.randint(self.population_size)
+                agent_1 = np.random.randint(self.population_size)
+                
+
+                el0 = np.random.randint(len(self.population[0]))
+                
+                # either swap a full segment or single connection matrix
+                swap_full = np.random.randint(2)
+                if swap_full:
+                    self.population[agent_0][el0], self.population[agent_1][el0] \
+                            = self.population[agent_1][el0], self.population[agent_0][el0]
+                else:
+                    el1 = np.random.randint(len(self.population[0][el0]))
+                    self.population[agent_0][el0][el1], self.population[agent_1][el0][el1] \
+                            = self.population[agent_1][el0][el1], self.population[agent_0][el0][el1]
+
         elite_connections = 0.0
         for elite_idx in range(num_elite):
             elite_connections += np.sum(np.sum([[np.sum(layer)\
@@ -282,6 +317,7 @@ class HebbianDAG():
 
 
         self.hebbian_prune(0.01) #, ll_rew, ll_done, ll_hebs)
+        if np.random.randint(2): self.mutate_pop(0.01)
         return sorted_fitness, num_elite,\
                 mean_connections, std_connections
 
@@ -394,21 +430,17 @@ if __name__ == "__main__":
     min_generations = 10
     epds = 4
     save_every = 50
-
     hid_dims = {\
-            "CartPole-v1": [16,16],\
+            "CartPole-v1": [25,12,6],\
             "InvertedPendulumBulletEnv-v0": [16,16],\
             "InvertedPendulumSwingupBulletEnv-v0": [32],\
             "InvertedDoublePendulumBulletEnv-v0": [4,4,4,4],\
             "ReacherBulletEnv-v0": [16,16,16],\
-            "BipedalWalker-v2": [4,4,4,4],\
+            "BipedalWalker-v2": [16,8,4],\
             "Walker2DBulletEnv-v0": [32,32,32,32],\
             "HopperBulletEnv-v0": [32,32,32]}
 
     env_names = [\
-            "CartPole-v1",
-            "InvertedPendulumBulletEnv-v0",\
-            "InvertedPendulumSwingupBulletEnv-v0",\
             "BipedalWalker-v2",\
             "ReacherBulletEnv-v0",\
             "InvertedDoublePendulumBulletEnv-v0"]
@@ -536,7 +568,7 @@ if __name__ == "__main__":
                 fitness = [np.sum(rew)/(np.sum(dones)) \
                         for rew, dones in zip(ll_rew,ll_done)]
 
-                sorted_fitness, num_elite, mutate_rate, \
+                sorted_fitness, num_elite, \
                         mean_connections, std_connections = \
                         agent.update_pop(fitness)
 

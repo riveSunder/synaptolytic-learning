@@ -10,6 +10,7 @@ from prune_bot import PruneableAgent
 
 from cma import CMAAgent
 from hebbian_dag import HebbianDAG
+from hebbian_lstm import HebbianLSTMAgent
 
 import pybullet
 import pybullet_envs
@@ -24,8 +25,8 @@ if __name__ == "__main__":
             help="path to trained model", \
             default="models/cma_32_exp003/cma_5287031InvertedPendulumSwingupBulletEnv-v0_s2_gen100.npy")
 
-    parser.add_argument('-d', '--dag', type=bool,\
-            help="use directed acyclic graph policy", default=False)
+    parser.add_argument('-d', '--agent_type', type=str,\
+            help="type of agent to use", default="PruneableAgent")
 
     parser.add_argument('-p', '--epds', type=int,\
             help="number of episodes to enjoy", default=3)
@@ -36,7 +37,7 @@ if __name__ == "__main__":
 
     model_fn = args.model
     env_name = args.env_name
-    use_dag = args.dag
+    agent_type = args.agent_type
     num_agents = args.agents
     epds = args.epds
 
@@ -52,15 +53,23 @@ if __name__ == "__main__":
     discrete = False
 
     temp_agent = np.load(model_fn, allow_pickle=True)
-    if use_dag:
-        agent = HebbianDAG(obs_dim, act_dim, discrete=discrete)
+    if "DAG" in agent_type:
+        hid_dim = [128,128,128]
+        agent = HebbianDAG(obs_dim, act_dim, hid_dim=hid_dim, discrete=discrete)
+        #if type(temp_agent) is not list:
+        #    temp_agent = [temp_agent]
+    elif "LSTM" in agent_type:
+        hid_dim = [128]
+        agent = HebbianLSTMAgent(obs_dim,act_dim, discrete=discrete)
     else:
         agent = PruneableAgent(obs_dim, act_dim, discrete=discrete)
 
+    #temp_agent = [temp_agent]
     population_size = len(temp_agent)
-    agent.pop_size = population_size 
+    agent.population_size = population_size 
     
-    agent.pop = temp_agent
+    agent.population = temp_agent
+    agent.hebbian = temp_agent
 
     for agent_idx in range(num_agents):
         for epd in range(epds):
