@@ -58,31 +58,45 @@ class HebbianLSTMAgent():
         cell_state = self.population[agent_idx][0]
         all_bias = 0.0
 
+        W = cell_state[0]
+
         x = np.append( obs, cell_state, axis=0 )
 
-        f = sigmoid(np.matmul(x, self.population[agent_idx][1]) + self.f_bias)
-        i = np.tanh(np.matmul(x, self.population[agent_idx][2]) + all_bias )
-        j = sigmoid(np.matmul(x, self.population[agent_idx][3]) + all_bias )
-        o = sigmoid(np.matmul(x, self.population[agent_idx][4]) + all_bias )
+        f = sigmoid(np.matmul(x, self.population[agent_idx][1]\
+                + W * self.hebbian[agent_idx][1] ) + self.f_bias)
+        i = np.tanh(np.matmul(x, self.population[agent_idx][2]\
+                + W * self.hebbian[agent_idx][2]) + all_bias )
+        j = sigmoid(np.matmul(x, self.population[agent_idx][3]\
+                + W * self.hebbian[agent_idx][3]) + self.f_bias )
+        o = sigmoid(np.matmul(x, self.population[agent_idx][4]\
+                + W * self.hebbian[agent_idx][4]) + self.f_bias )
 
         cell_state = np.tanh(cell_state * f + i * j)
 
         h = cell_state * o 
 
         action = np.tanh(np.matmul(h, self.population[agent_idx][5]))
+        
+        dopamine = cell_state[1]
 
         if hebbian:
-            f_hebbian = np.matmul(x[np.newaxis,:].T, f[np.newaxis,:])
-            i_hebbian = np.matmul(x[np.newaxis,:].T, i[np.newaxis,:])
-            j_hebbian = np.matmul(x[np.newaxis,:].T, j[np.newaxis,:])
-            o_hebbian = np.matmul(x[np.newaxis,:].T, o[np.newaxis,:])
-            a_hebbian = np.matmul(h[np.newaxis,:].T, action[np.newaxis,:])
+            # rule is
 
-            self.hebbian[agent_idx][1] += f_hebbian
-            self.hebbian[agent_idx][2] += i_hebbian
-            self.hebbian[agent_idx][3] += j_hebbian
-            self.hebbian[agent_idx][4] += o_hebbian
-            self.hebbian[agent_idx][5] += a_hebbian
+            f_hebbian = (np.matmul(x[np.newaxis,:].T, f[np.newaxis,:]))
+            i_hebbian = (np.matmul(x[np.newaxis,:].T, i[np.newaxis,:]))
+            j_hebbian = (np.matmul(x[np.newaxis,:].T, j[np.newaxis,:]))
+            o_hebbian = (np.matmul(x[np.newaxis,:].T, o[np.newaxis,:]))
+            a_hebbian = (np.matmul(h[np.newaxis,:].T, action[np.newaxis,:]))
+
+            clamp_value = 0.1
+
+            self.hebbian[agent_idx][1] += np.clip(dopamine * f_hebbian, -clamp_value, clamp_value)
+            self.hebbian[agent_idx][2] += np.clip(dopamine * i_hebbian, -clamp_value, clamp_value)
+            self.hebbian[agent_idx][3] += np.clip(dopamine *j_hebbian, -clamp_value, clamp_value)
+            self.hebbian[agent_idx][4] += np.clip(dopamine * o_hebbian, -clamp_value, clamp_value)
+            self.hebbian[agent_idx][5] += np.clip(dopamine * a_hebbian, -clamp_value, clamp_value)
+
+            
 
         self.population[agent_idx][0] = cell_state
         return action
@@ -258,7 +272,7 @@ class HebbianLSTMAgent():
 
 
 
-        if np.random.randint(2):
+        if (0):  #np.random.randint(2):
             self.random_prune(prune_rate=0.07, keep=2)
         else:
             self.hebbian_prune(prune_rate=0.02, keep=2)
