@@ -21,7 +21,7 @@ def softmax(x):
 
 class HebbianLSTMAgent():
     
-    def __init__(self, input_dim, act_dim, hid_dim=[32,32],\
+    def __init__(self, input_dim, act_dim, hid_dim=[128],\
             population_size=10, seed=0, discrete=True, random_init=True):
 
         self.input_dim = input_dim
@@ -187,7 +187,7 @@ class HebbianLSTMAgent():
         sort_indices.reverse()
 
         sorted_fitness = np.array(fitness)[sort_indices]
-        #sorted_pop = self.population[sort_indices]
+        sorted_pop = [self.population[idx] for idx in sort_indices]
         
         connections = []
         for pop_idx in range(self.population_size):
@@ -197,7 +197,7 @@ class HebbianLSTMAgent():
         mean_connections = np.mean(connections)
         std_connections = np.std(connections)
 
-        keep = int(np.ceil(0.125*self.population_size))
+        keep = int(np.ceil(0.125 * self.population_size))
 
         if sorted_fitness[0] > self.best_agent:
             # keep best agent
@@ -226,7 +226,7 @@ class HebbianLSTMAgent():
         
         print("added {} agents to elite population".format(total_added))
         self.leaderboard = self.leaderboard[:keep]
-        self.elite_pop = self.elite_pop[:keep]
+        self.elite_pop = self.elite_pop[:keep] + sorted_pop[:keep]
             
 
         if np.mean(sorted_fitness[:keep]) > self.best_gen:
@@ -248,18 +248,20 @@ class HebbianLSTMAgent():
         num_recombinations = num_elite * 2
         if recombine:
             for ll in range(num_elite):
-                agent_0 = np.random.randint(population_size)
-                agent_1 = np.random.randint(population_size)
+                agent_0 = np.random.randint(self.population_size)
+                agent_1 = np.random.randint(self.population_size)
 
                 swap_gate = np.random.randint(4)
 
-                self.population[agent_0][swap_gate], self.population[agent_1][swap_gat] \
-                        = self.population[agent_1][swap_gate], self.population[agent_0][swap_gat] \
+                self.population[agent_0][swap_gate], self.population[agent_1][swap_gate] \
+                        = self.population[agent_1][swap_gate], self.population[agent_0][swap_gate] \
 
 
 
-        #self.random_prune(prune_rate=0.01, keep=2)
-        self.hebbian_prune(prune_rate=0.01, keep=2)
+        if np.random.randint(2):
+            self.random_prune(prune_rate=0.07, keep=2)
+        else:
+            self.hebbian_prune(prune_rate=0.02, keep=2)
 
         return sorted_fitness, num_elite, \
                 mean_connections, std_connections

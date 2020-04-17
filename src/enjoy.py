@@ -69,7 +69,7 @@ if __name__ == "__main__":
     agent.population_size = population_size 
     
     agent.population = temp_agent
-    agent.hebbian = temp_agent
+    #agent.hebbian = temp_agent
 
     for agent_idx in range(num_agents):
         for epd in range(epds):
