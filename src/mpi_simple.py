@@ -207,131 +207,132 @@ def mantle(args):
     max_generations = args.max_generations
     population_size = args.population_size
 
-    disp_every = 100
-    my_seed = 0
-    np.random.seed(my_seed)
+    disp_every = 25
+    my_seeds = args.seed
 
-    exp_time = str(int(time.time()))[-7:]
-    exp_id = "exp_" + exp_time + "env_" +\
-            env_name + "_s" + str(my_seed)
+    for my_seed in my_seeds:
+        print("training with seed {}".format(my_seed))
+        np.random.seed(my_seed)
 
-    hid_dim = [32]
-    
-    env = gym.make(env_name) 
-    obs_dim = env.observation_space.shape[0]
-    try:
-        act_dim = env.action_space.n
-        discrete = True
-    except:
-        act_dim = env.action_space.sample().shape[0]
-        discrete = False
+        exp_time = str(int(time.time()))[-7:]
+        exp_id = "exp_" + exp_time + "env_" +\
+                env_name + "_s" + str(my_seed)
+        
+        env = gym.make(env_name) 
+        obs_dim = env.observation_space.shape[0]
+        try:
+            act_dim = env.action_space.n
+            discrete = True
+        except:
+            act_dim = env.action_space.sample().shape[0]
+            discrete = False
 
-    if "PruneabelAgent" in args.agent_type:
-        agent = PruneableAgent(obs_dim, act_dim, hid_dim=hid_dim,\
-                population_size=population_size, discrete=discrete)
-    elif "Hebbian" in args.agent_type and "LSTM" in args.agent_type:
-        hid_dim = [128]
-        agent = HebbianLSTMAgent(obs_dim, act_dim, hid_dim=hid_dim,\
-                population_size=population_size, seed=0, discrete=discrete)
-    elif "HebbianDAG" in args.agent_type:
-        hid_dim = [128,128,128]
-        agent = HebbianDAG(obs_dim, act_dim, hid_dim=hid_dim,\
-                population_size=population_size, seed=0, discrete=discrete)
-
-
-    t0 = time.time()
-
-    results = {"generation": [],\
-            "total_env_interacts": [],\
-            "wall_time": [],\
-            "prune_prob": [],\
-            "best_agent_fitness": [],\
-            "pop_mean_fit": [],\
-            "pop_std_fit": [],\
-            "pop_max_fit": [],\
-            "pop_min_fit": [],\
-            "mean_agent_sum": [],\
-            "std_agent_sum": [],\
-            "elite_mean_fit": [],\
-            "elite_std_fit": [],\
-            "elite_min_fit": [],\
-            "elite_max_fit": [],\
-            "elite_agent_sum": []}
-
-    total_total_steps = 0
-
-    for generation in range(max_generations):
-        bb = 0
-        fitness = []
-        total_steps =0
-
-        t1 = time.time()
-
-        while bb <= population_size: # - nWorker:
-            pop_left = population_size - bb
-            for cc in range(1, min(nWorker, 1+pop_left)):
-                comm.send(agent.population[bb+cc-1], dest=cc)
-            
-            for cc in range(1, min(nWorker, 1+pop_left)):
-                #comm.send(agent.population[bb+cc-1], dest=cc)
-                fit = comm.recv(source=cc)
-                fitness.extend(fit[0])
-                total_steps += fit[1]
-
-            bb += cc
-
-        total_total_steps += total_steps
-        sorted_fitness, num_elite,\
-                mean_connections, std_connections = agent.update_pop(fitness)
-
-        keep = 16
-
-        connections = mean_connections #np.sum([np.sum(layer) for layer in agent.elite_agent])
+        hid_dim = args.hid_dims
+        if "PruneabelAgent" in args.agent_type:
+            agent = PruneableAgent(obs_dim, act_dim, hid_dim=hid_dim,\
+                    population_size=population_size, discrete=discrete)
+        elif "Hebbian" in args.agent_type and "LSTM" in args.agent_type:
+            agent = HebbianLSTMAgent(obs_dim, act_dim, hid_dim=hid_dim,\
+                    population_size=population_size, seed=0, discrete=discrete)
+        elif "HebbianDAG" in args.agent_type:
+            agent = HebbianDAG(obs_dim, act_dim, hid_dim=hid_dim,\
+                    population_size=population_size, seed=0, discrete=discrete)
 
 
-        results["generation"].append(generation)
-        results["total_env_interacts"].append(total_total_steps)
-        results["wall_time"].append(time.time()-t0)
-        results["prune_prob"].append(0.01)
-        results["best_agent_fitness"].append(sorted_fitness[0])
-        results["pop_mean_fit"].append(np.mean(fitness))
-        results["pop_std_fit"].append(np.std(fitness))
-        results["pop_max_fit"].append(np.max(fitness))
-        results["pop_min_fit"].append(np.min(fitness))
-        results["elite_mean_fit"].append(np.mean(\
-                sorted_fitness[:num_elite]))
-        results["elite_std_fit"].append(np.std(\
-                sorted_fitness[:num_elite]))
-        results["elite_max_fit"].append(np.max(\
-                sorted_fitness[:num_elite]))
-        results["elite_min_fit"].append(np.min(\
-                sorted_fitness[:num_elite]))
-        results["elite_agent_sum"].append(connections)
-        results["mean_agent_sum"].append(mean_connections)
-        results["std_agent_sum"].append(std_connections)
+        t0 = time.time()
 
-        if generation % disp_every == 0:
-            np.save("./results/prunemk1_mpi_{}.npy"\
-                    .format(exp_id), results)
-            print("mean/std connections {:.2e}/{:.2e} ".format(mean_connections, std_connections))
-            print("gen {} mean fitness {:.3f}/ max {:.3f} , time elapsed/per gen {:.2f}/{:.2f}".\
-                    format(generation, np.mean(fitness), np.max(fitness),\
-                    time.time()-t0, (time.time() - t0)/(generation+1)))
+        results = {"generation": [],\
+                "total_env_interacts": [],\
+                "wall_time": [],\
+                "prune_prob": [],\
+                "best_agent_fitness": [],\
+                "pop_mean_fit": [],\
+                "pop_std_fit": [],\
+                "pop_max_fit": [],\
+                "pop_min_fit": [],\
+                "mean_agent_sum": [],\
+                "std_agent_sum": [],\
+                "elite_mean_fit": [],\
+                "elite_std_fit": [],\
+                "elite_min_fit": [],\
+                "elite_max_fit": [],\
+                "elite_agent_sum": []}
 
-            np.save("./syn_{}best_agents.npy".format(exp_id), agent.elite_pop)
+        total_total_steps = 0
 
-    np.save("./results/prunemk1_mpi_{}.npy"\
-            .format(exp_id), results)
-    print("mean/std connections {:.2e}/{:.2e} ".format(mean_connections, std_connections) )
-    print("gen {} mean fitness {:.3f}/ max {:.3f} , time elapsed/per gen {:.2f}/{:.2f}".\
-            format(generation, np.mean(fitness), np.max(fitness),\
-            time.time()-t0, (time.time() - t0)/(generation+1)))
-    np.save("./syn_{}best_agents.npy".format(exp_id), agent.elite_pop)
+        for generation in range(max_generations):
+            bb = 0
+            fitness = []
+            total_steps =0
 
-    np.save("./syn_{}best_agent.npy".format(exp_id), agent.elite_agent)
+            t1 = time.time()
 
-    print("time to compute fitness for pop {} on {} workers {:.3f}".format(\
-            population_size, nWorker, time.time()-t0))
+            while bb <= population_size: # - nWorker:
+                pop_left = population_size - bb
+                for cc in range(1, min(nWorker, 1+pop_left)):
+                    comm.send(agent.population[bb+cc-1], dest=cc)
+                
+                for cc in range(1, min(nWorker, 1+pop_left)):
+                    #comm.send(agent.population[bb+cc-1], dest=cc)
+                    fit = comm.recv(source=cc)
+                    fitness.extend(fit[0])
+                    total_steps += fit[1]
+
+                bb += cc
+
+            total_total_steps += total_steps
+            sorted_fitness, num_elite,\
+                    mean_connections, std_connections = agent.update_pop(fitness)
+
+            keep = 16
+
+            connections = mean_connections #np.sum([np.sum(layer) for layer in agent.elite_agent])
+
+
+            results["generation"].append(generation)
+            results["total_env_interacts"].append(total_total_steps)
+            results["wall_time"].append(time.time()-t0)
+            results["prune_prob"].append(0.01)
+            results["best_agent_fitness"].append(sorted_fitness[0])
+            results["pop_mean_fit"].append(np.mean(fitness))
+            results["pop_std_fit"].append(np.std(fitness))
+            results["pop_max_fit"].append(np.max(fitness))
+            results["pop_min_fit"].append(np.min(fitness))
+            results["elite_mean_fit"].append(np.mean(\
+                    sorted_fitness[:num_elite]))
+            results["elite_std_fit"].append(np.std(\
+                    sorted_fitness[:num_elite]))
+            results["elite_max_fit"].append(np.max(\
+                    sorted_fitness[:num_elite]))
+            results["elite_min_fit"].append(np.min(\
+                    sorted_fitness[:num_elite]))
+            results["elite_agent_sum"].append(connections)
+            results["mean_agent_sum"].append(mean_connections)
+            results["std_agent_sum"].append(std_connections)
+
+            if generation % disp_every == 0:
+                print(my_seed)
+                np.save("./results/prunemk1_mpi_{}.npy"\
+                        .format(exp_id), results)
+                print("mean/std connections {:.2e}/{:.2e} ".format(mean_connections, std_connections))
+                print("gen {} mean fitness {:.3f}/ max {:.3f} , time elapsed/per gen {:.2f}/{:.2f}".\
+                        format(generation, np.mean(fitness), np.max(fitness),\
+                        time.time()-t0, (time.time() - t0)/(generation+1)))
+
+                np.save("./syn_{}best_agents.npy".format(exp_id), agent.elite_pop)
+
+        np.save("./results/prunemk1_mpi_{}.npy"\
+                .format(exp_id), results)
+        print("mean/std connections {:.2e}/{:.2e} ".format(mean_connections, std_connections) )
+        print("gen {} mean fitness {:.3f}/ max {:.3f} , time elapsed/per gen {:.2f}/{:.2f}".\
+                format(generation, np.mean(fitness), np.max(fitness),\
+                time.time()-t0, (time.time() - t0)/(generation+1)))
+        np.save("./syn_{}best_agents.npy".format(exp_id), agent.elite_pop)
+
+        np.save("./syn_{}best_agent.npy".format(exp_id), agent.elite_agent)
+
+        print("time to compute fitness for pop {} on {} workers {:.3f}".format(\
+                population_size, nWorker, time.time()-t0))
     for cc in range(1,nWorker):
         comm.send(0, dest=cc)
     data = 0
@@ -342,8 +343,7 @@ def arm(args):
     env_name = args.env_name
     max_generations = args.max_generations
 
-    hid_dim = [32]
-    epds = 16
+    epds = args.epds
     env = gym.make(env_name) 
 
     obs_dim = env.observation_space.shape[0]
@@ -355,15 +355,14 @@ def arm(args):
         discrete = False
 
     population_size = 1
+    hid_dim = args.hid_dims
     if "PruneabelAgent" in args.agent_type:
         agent = PruneableAgent(obs_dim, act_dim, hid_dim=hid_dim,\
                 population_size=population_size, discrete=discrete)
     elif "Hebbian" in args.agent_type and "LSTM" in args.agent_type:
-        hid_dim = [128]
         agent = HebbianLSTMAgent(obs_dim, act_dim, hid_dim=hid_dim,\
                 population_size=population_size, seed=0, discrete=discrete)
     elif "HebbianDAG" in args.agent_type:
-        hid_dim = [128,128,128]
         agent = HebbianDAG(obs_dim, act_dim, hid_dim=hid_dim,\
                 population_size=population_size, seed=0, discrete=discrete)
 
@@ -422,8 +421,13 @@ if __name__ == "__main__":
             default="HebbianLSTMAgent")
     parser.add_argument('-p', '--population_size', type=int,\
             help="number of agents in a population", default=92)
-    #parser.add_argument('-h', '--hid_dims', type=list,\
-    #        help="hidden dims", default=[16])
+    parser.add_argument('-s', '--seed', type=int, nargs='+',\
+            help="random seed for initialization", default=[42])
+
+    parser.add_argument('-d', '--hid_dims', type=int, nargs='+',\
+            help="hidden layer nodes", default=[256])
+    parser.add_argument('-r', '--epds', type=int,\
+            help="hidden layer nodes", default=8)
 
     args = parser.parse_args()
 
