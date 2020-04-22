@@ -25,62 +25,81 @@ def softmax(x):
 
 class HebbianDAG():
 
-    def __init__(self, input_dim, act_dim, hid=[32,32],\
-            pop_size=10, seed=0, discrete=True, random_init=True):
+    def __init__(self, input_dim, act_dim, hid_dim=[32,32],\
+            population_size=10, seed=0, discrete=True, random_init=True, neuromodulate=False):
+
+        self.neuromodulate = neuromodulate
 
         self.random_init = random_init
         self.input_dim = input_dim
-        self.output_dim = act_dim #output_dim
-        self.hid = hid
+        self.output_dim = act_dim + 1 #output_dim
+        self.hid_dim = hid_dim
         
-        self.hid.append(self.output_dim)
-        self.hid.insert(0,self.input_dim)
+        self.hid_dim.append(self.output_dim)
+        self.hid_dim.insert(0,self.input_dim)
 
-        self.pop_size = pop_size
+        self.population_size = population_size
         self.seed = seed
         self.by = -0.00
         self.mut_noise = 1e0
         self.discrete = discrete
         self.best_gen = -float("Inf")
         self.best_agent = -float("Inf")
-        self.keep = int(self.pop_size/8)
+        self.keep = int(self.population_size/8)
         self.elite_pop = []
         self.leaderboard = [-float("Inf")] * self.keep
         np.random.seed(self.seed)
 
         self.init_pop()
-        #self.mutate_pop(rate=0.25)
+        self.mutate_pop(rate=0.025)
+        
 
     def get_action(self, obs, agent_idx=0, scaler=1.0, enjoy=False, \
-            get_hebs=False):
+            get_hebs=False, neuromodulate=True):
 
         x = obs        
         xs = [x]
-        
+
+        neuromodulate = self.neuromodulate
+
         if get_hebs: hebs = []
-        for ii in range(len(self.hid)-1):
-            x = np.zeros((self.hid[ii+1]))
+        for ii in range(len(self.hid_dim)-1):
+            x = np.zeros((self.hid_dim[ii+1]))
             for jj in range(ii+1):
 
-                x_temp = np.matmul(xs[jj], self.population[agent_idx][ii][jj])
+                if neuromodulate:
+                    x_temp = np.matmul(xs[jj], self.population[agent_idx][ii][jj]\
+                            + self.hebbian[agent_idx][ii][jj] * self.modulation[agent_idx])
+                else:
+                    x_temp = np.matmul(xs[jj], self.population[agent_idx][ii][jj])
+
                 self.hebbian[agent_idx][ii][jj] += \
+                        self.remember[agent_idx] * \
                         np.matmul(xs[jj][np.newaxis,:].T, x_temp[np.newaxis,:])
+                        
+                #self.hebbian[agent_idx][ii][jj] = np.clip(self.hebbian[agent_idx][ii][jj],
+                #        -10.0, 10.0)
 
                 if get_hebs: 
-                    hebs.append(np.abs(np.matmul(xs[jj][np.newaxis,:].T,\
+                    hebs.append(self.remember[agent_idx] * np.abs(np.matmul(xs[jj][np.newaxis,:].T,\
                             x_temp[np.newaxis,:])))
                 x += x_temp
 
-            x = np.tanh(x-1)
-            #x = sinc(x)
-            #x = np.sin(x)
+
+            if ii < len(self.hid_dim):
+                x = np.tanh(x)
+
+            if self.neuromodulate:
+                if ii == len(self.hid_dim)-2:
+                    self.modulation[agent_idx] = 0.0 #x[0] #0.0 #np.clip(x[0],-0.001, 0.001)
+                    self.remember[agent_idx] = x[1]
 
             xs.append(x)
             #x[x<0] = 0 # relu
 
 #
-#        for ii in range(len(self.hid)-1):
-#            x = np.zeros((self.hid[ii+1]))
+#        for ii in range(len(self.hid_dim)-1):
+#           x = np.zeros((self.hid_dim[ii+1]))
 #            for jj in range(ii+1):
 #                
 #
@@ -103,6 +122,7 @@ class HebbianDAG():
             #x = x
             act = np.tanh(x)
 
+        act = x[1:]
         if get_hebs:
             return act, hebs
         else:
@@ -139,7 +159,7 @@ class HebbianDAG():
         plt.close("all")
 
 
-        return fitness, total_steps# , complexity 
+        return [fitness, total_steps] # , complexity 
 
     def get_trajectory(self, num_steps):
 
@@ -219,7 +239,7 @@ class HebbianDAG():
         
         connections = []
 
-        for pop_idx in range(self.pop_size):
+        for pop_idx in range(self.population_size):
             connections.append(np.sum([[np.sum(layer) \
                     for layer in layer_layer] \
                     for layer_layer in self.population[pop_idx]]))
@@ -227,7 +247,7 @@ class HebbianDAG():
         mean_connections = np.mean(connections)
         std_connections = np.std(connections)
 
-        keep = int(np.ceil(0.125*self.pop_size))
+        keep = int(np.ceil(0.125*self.population_size))
         if sorted_fitness[0] >= self.best_agent:
             # keep best agent
             print("best elite agent: {} v {}".\
@@ -270,9 +290,32 @@ class HebbianDAG():
         num_elite = len(self.elite_pop)
         p = np.arange(num_elite,0,-1) / np.sum(np.arange(num_elite,0,-1))
         a = np.arange(num_elite)
-        for pp in range(self.pop_size):
+        for pp in range(self.population_size):
             idx = np.random.choice(a,size=1,p=p)[0]
             self.population.append(copy.deepcopy(self.elite_pop[idx]))
+
+
+        
+        recombine = True
+        num_swaps = keep
+
+        if(recombine):
+            for ll in range(num_swaps):
+                agent_0 = np.random.randint(self.population_size)
+                agent_1 = np.random.randint(self.population_size)
+                
+
+                el0 = np.random.randint(len(self.population[0]))
+                
+                # either swap a full segment or single connection matrix
+                swap_full = np.random.randint(2)
+                if swap_full:
+                    self.population[agent_0][el0], self.population[agent_1][el0] \
+                            = self.population[agent_1][el0], self.population[agent_0][el0]
+                else:
+                    el1 = np.random.randint(len(self.population[0][el0]))
+                    self.population[agent_0][el0][el1], self.population[agent_1][el0][el1] \
+                            = self.population[agent_1][el0][el1], self.population[agent_0][el0][el1]
 
         elite_connections = 0.0
         for elite_idx in range(num_elite):
@@ -280,8 +323,15 @@ class HebbianDAG():
                     for layer in layer_layer] \
                     for layer_layer in self.elite_pop[elite_idx]]))
 
-        mutation_rate = 0.025
-        return sorted_fitness, num_elite, mutation_rate, \
+
+        for agent_idx in range(self.population_size):
+            self.modulation[agent_idx] =  0.0
+            self.remember[agent_idx] = 1.0
+
+        self.hebbian_prune(0.01) #, ll_rew, ll_done, ll_hebs)
+        if np.random.randint(2): self.mutate_pop(0.01)
+
+        return sorted_fitness, num_elite,\
                 mean_connections, std_connections
 
     def init_pop(self):
@@ -289,20 +339,26 @@ class HebbianDAG():
         self.population = []
         self.hebbian = []
 
-        for jj in range(self.pop_size):
+        self.modulation = []
+        self.remember = []
+        for agent_idx in range(self.population_size):
+            self.modulation.append( 0.0)
+            self.remember.append(1.0)
+
+        for jj in range(self.population_size):
             layers = [[]]
             heb_layers = [[]]
 
-            for layer_layer in range(len(self.hid)-1):
+            for layer_layer in range(len(self.hid_dim)-1):
 
                 for layer in range(layer_layer+1):
 
                     if self.random_init:
-                        layer_weights = np.random.randn(self.hid[layer],\
-                                self.hid[layer_layer+1])
+                        layer_weights = np.random.randn(self.hid_dim[layer],\
+                                self.hid_dim[layer_layer+1])
                     else:
-                        layer_weights = np.ones((self.hid[layer], \
-                                self.hid[layer_layer+1])) 
+                        layer_weights = np.ones((self.hid_dim[layer], \
+                                self.hid_dim[layer_layer+1])) 
 
                     if layer == 0 and layer_layer != 0:
                         layers.append([layer_weights])
@@ -322,7 +378,7 @@ class HebbianDAG():
     def hebbian_prune2(self, prune_rate=0.001, \
             ll_rew=None, ll_done=None, ll_hebs=None):
         keep = self.keep
-        for jj in range(keep, self.pop_size):
+        for jj in range(keep, self.population_size):
             advantage = self.get_advantage(ll_rew[jj], ll_done[jj], gamma=0.5)
             num_layer_layers = len(self.population[jj])
             heb_idx = 0
@@ -355,7 +411,7 @@ class HebbianDAG():
 
     def hebbian_prune(self, prune_rate=0.01):
 
-        for jj in range(self.pop_size):
+        for jj in range(self.population_size):
             for kk in range(len(self.population[jj])):
                 for ll in range(len(self.population[jj][kk])):
 
@@ -364,7 +420,7 @@ class HebbianDAG():
                     prunes_per_layer = prune_rate * temp_layer.shape[0]*temp_layer.shape[1]
 
                     temp_layer *= 1.0 * (np.random.random((temp_layer.shape[0],\
-                            temp_layer.shape[1])) > (softmax(-self.hebbian[jj][kk][ll]) \
+                            temp_layer.shape[1])) > (softmax(-np.abs(self.hebbian[jj][kk][ll])) \
                             * prunes_per_layer))
 
                     self.hebbian[jj][kk][ll] *= 0
@@ -375,7 +431,7 @@ class HebbianDAG():
     def mutate_pop(self, rate=0.1):
         # mutate population by 
         
-        for jj in range(self.pop_size):
+        for jj in range(self.population_size):
             for kk in range(len(self.population[jj])):
                 for ll in range(len(self.population[jj][kk])):    
 
@@ -393,21 +449,17 @@ if __name__ == "__main__":
     min_generations = 10
     epds = 4
     save_every = 50
-
     hid_dims = {\
-            "CartPole-v1": [16,16],\
+            "CartPole-v1": [25,12,6],\
             "InvertedPendulumBulletEnv-v0": [16,16],\
             "InvertedPendulumSwingupBulletEnv-v0": [32],\
             "InvertedDoublePendulumBulletEnv-v0": [4,4,4,4],\
             "ReacherBulletEnv-v0": [16,16,16],\
-            "BipedalWalker-v2": [4,4,4,4],\
+            "BipedalWalker-v2": [16,8,4],\
             "Walker2DBulletEnv-v0": [32,32,32,32],\
             "HopperBulletEnv-v0": [32,32,32]}
 
     env_names = [\
-            "CartPole-v1",
-            "InvertedPendulumBulletEnv-v0",\
-            "InvertedPendulumSwingupBulletEnv-v0",\
             "BipedalWalker-v2",\
             "ReacherBulletEnv-v0",\
             "InvertedDoublePendulumBulletEnv-v0"]
@@ -419,7 +471,7 @@ if __name__ == "__main__":
 #            "HalfCheetahBulletEnv-v0"]
 
 
-    pop_size = {\
+    population_size = {\
             "CartPole-v1": 64,\
             "BipedalWalker-v2": 32,\
             "InvertedDoublePendulumBulletEnv-v0": 64,\
@@ -510,9 +562,9 @@ if __name__ == "__main__":
                 act_dim = env.action_space.sample().shape[0]
                 discrete = False
 
-            population_size = pop_size[env_name]
-            agent = HebbianDAG(obs_dim, act_dim, hid=hid_dim, \
-                    pop_size=population_size, discrete=discrete)
+            population_size = population_size[env_name]
+            agent = HebbianDAG(obs_dim, act_dim, hid_dim=hid_dim, \
+                    population_size=population_size, discrete=discrete)
 
             total_total_steps = 0
             t0 = time.time()
@@ -535,7 +587,7 @@ if __name__ == "__main__":
                 fitness = [np.sum(rew)/(np.sum(dones)) \
                         for rew, dones in zip(ll_rew,ll_done)]
 
-                sorted_fitness, num_elite, mutate_rate, \
+                sorted_fitness, num_elite, \
                         mean_connections, std_connections = \
                         agent.update_pop(fitness)
 

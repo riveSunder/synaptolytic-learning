@@ -217,7 +217,7 @@ class CMAAgent():
 
 if __name__ == "__main__":
     min_generations = 10
-    epds = 4 
+    epds = 8 
     save_every = 50
 
     hid_dims = {\
@@ -230,8 +230,11 @@ if __name__ == "__main__":
             "HopperBulletEnv-v0": [32,32,32]}
 
     env_names = [\
-            "InvertedPendulumSwingupBulletEnv-v0",\
-            ]
+            "InvertedPendulumBulletEnv-v0"]
+#             "Walker2DBulletEnv-v0"]
+#            "InvertedPendulumSwingupBulletEnv-v0"]
+#            "ReacherBulletEnv-v0",\
+#            "HalfCheetahBulletEnv-v0"]
 
 
     pop_size = {\
@@ -244,8 +247,8 @@ if __name__ == "__main__":
             "Walker2DBulletEnv-v0": 256}
 
     thresh_performance = {\
+            "InvertedPendulumBulletEnv-v0": 999.,\
             "InvertedDoublePendulumBulletEnv-v0": 1999,\
-            "InvertedPendulumBulletEnv-v0": 999.5,\
             "InvertedPendulumSwingupBulletEnv-v0": 880,\
             "HalfCheetahBulletEnv-v0": 2100,\
             "HopperBulletEnv-v0": 3000,\

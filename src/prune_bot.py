@@ -21,13 +21,13 @@ def softmax(x):
 
 class PruneableAgent():
 
-    def __init__(self, input_dim, act_dim, hid=[32,32,32],\
-            pop_size=10, seed=0, discrete=True):
+    def __init__(self, input_dim, act_dim, hid_dim=[32,32,32],\
+            population_size=10, seed=0, discrete=True):
 
         self.input_dim = input_dim
         self.output_dim = act_dim #output_dim
-        self.hid = hid
-        self.pop_size = pop_size
+        self.hid = hid_dim
+        self.pop_size = population_size
         self.seed = seed
         self.by = -0.00
         self.mut_noise = 1e0
@@ -42,17 +42,17 @@ class PruneableAgent():
     def get_action(self, obs, agent_idx=0, scaler=1.0, enjoy=False):
 
         x = obs        
-        if enjoy: self.hid = [hid.shape[1] for hid in self.pop[agent_idx]][:-1]
+        if enjoy: self.hid = [hid.shape[1] for hid in self.population[agent_idx]][:-1]
         for ii in range(len(self.hid)):
-            x = np.matmul(x, scaler*self.pop[agent_idx][ii])
+            x = np.matmul(x, scaler*self.population[agent_idx][ii])
             x = np.tanh(x)
             #x[x<0] = 0 # relu
 
         if self.discrete:
-            x = sigmoid(self.by + np.matmul(x, scaler*self.pop[agent_idx][-1]))
+            x = sigmoid(self.by + np.matmul(x, scaler*self.population[agent_idx][-1]))
             #x = np.where(x > 0.5, 1, 0) 
         else:
-            x = self.by + np.matmul(x, scaler*self.pop[agent_idx][-1])
+            x = self.by + np.matmul(x, scaler*self.population[agent_idx][-1])
 
         if self.discrete:
             x = softmax(x)
@@ -68,7 +68,7 @@ class PruneableAgent():
         complexity = []
         total_steps = 0
 
-        for agent_idx in range(len(self.pop)):
+        for agent_idx in range(len(self.population)):
             #obs = flatten_obs(env.reset())
             accumulated_reward = 0.0
             for scaler in values:
@@ -86,12 +86,11 @@ class PruneableAgent():
                         accumulated_reward += reward
                     render = False 
 
-            complexity_penalty = 0* np.mean([np.mean(layer) \
-                    for layer in self.pop[agent_idx]])
+            complexity_penalty =  np.mean([np.mean(layer) \
+                    for layer in self.population[agent_idx]])
 
             fitness.append(accumulated_reward/(epds*len(values))-complexity_penalty)
             #complexity.append(complexity_penalty)
-        plt.close("all")
 
 
         return fitness, total_steps# , complexity 
@@ -104,12 +103,12 @@ class PruneableAgent():
         sort_indices.reverse()
 
         sorted_fitness = np.array(fitness)[sort_indices]
-        #sorted_pop = self.pop[sort_indices]
+        #sorted_pop = self.population[sort_indices]
         
         connections = []
         for pop_idx in range(self.pop_size):
             connections.append(np.sum([np.sum(layer) \
-                    for layer in self.pop[pop_idx]]))
+                    for layer in self.population[pop_idx]]))
         mean_connections = np.mean(connections)
         std_connections = np.std(connections)
 
@@ -118,7 +117,7 @@ class PruneableAgent():
             # keep best agent
             print("new best elite agent: {} v {}".\
                     format(sorted_fitness[0], self.best_agent))
-            self.elite_agent = self.pop[sort_indices[0]]
+            self.elite_agent = self.population[sort_indices[0]]
             self.best_agent = sorted_fitness[0]
 
         if np.mean(sorted_fitness[:keep]) > self.best_gen:
@@ -129,23 +128,24 @@ class PruneableAgent():
 
         self.elite_pop = []
         self.elite_pop.append(self.elite_agent)
-        for oo in range(keep):
-            self.elite_pop.append(self.pop[sort_indices[oo]])
 
-        self.pop = []
+        for oo in range(keep):
+            self.elite_pop.append(self.population[sort_indices[oo]])
+
+        self.population = []
         num_elite = len(self.elite_pop)
         p = np.arange(num_elite,0,-1) / np.sum(np.arange(num_elite,0,-1))
         a = np.arange(num_elite)
         for pp in range(self.pop_size):
             idx = np.random.choice(a,size=1,p=p)[0]
-            self.pop.append(copy.deepcopy(self.elite_pop[idx]))
+            self.population.append(copy.deepcopy(self.elite_pop[idx]))
         
 
         if(recombine):
             for ll in range(keep,self.pop_size):
                 new_layers = []
                 for mm in range(len(self.hid)+1):
-                    rec_map = np.random.randint(num_elite, size=self.pop[0][mm].shape)
+                    rec_map = np.random.randint(num_elite, size=self.population[0][mm].shape)
                     new_layer = np.zeros_like(self.elite_pop[0][mm])
                     for nn in range(num_elite):
                         new_layer = np.where(rec_map==nn, self.elite_pop[nn][mm],new_layer)
@@ -153,7 +153,7 @@ class PruneableAgent():
                             new_layer.shape[0], new_layer.shape[1]))
 
 
-                self.pop.append(new_layers)
+                self.population.append(new_layers)
         elite_connections = 0.0
         for elite_idx in range(num_elite):
             elite_connections += (mean_connections - np.sum([np.sum(layer)\
@@ -162,13 +162,17 @@ class PruneableAgent():
         mutation_rate = np.sqrt(elite_connections / num_elite)
         mutation_rate /= mean_connections
         #mutation_rate *= 0.995
-        mutation_rate = np.max([np.min([0.05, mutation_rate]), 0.001])
-        return sorted_fitness, num_elite, mutation_rate, \
+
+        self.mutate_pop(keep=keep, rate=mutation_rate)
+
+        mutation_rate = np.max([np.min([0.0125, mutation_rate]), 0.001])
+        self.population[:keep] = self.elite_pop
+        return sorted_fitness, num_elite, \
                 mean_connections, std_connections
 
     def init_pop(self):
         # represent population as a list of lists of np arrays
-        self.pop = []
+        self.population = []
 
         for jj in range(self.pop_size):
             layers = []
@@ -180,24 +184,24 @@ class PruneableAgent():
                     layers.append(layer)
             layer = np.ones((self.hid[-1], self.output_dim)) 
             layers.append(layer)
-            self.pop.append(layers)
+            self.population.append(layers)
 
-    def mutate_pop(self, rate=0.1):
+    def mutate_pop(self, keep=0, rate=0.01):
         # mutate population by 
         
-        for jj in range(self.pop_size):
-            for kk in range(len(self.pop[jj])):
-                temp_layer = np.copy(self.pop[jj][kk])
+        for jj in range(keep, self.pop_size):
+            for kk in range(len(self.population[jj])):
+                temp_layer = np.copy(self.population[jj][kk])
                 
                 temp_layer *= np.random.random((temp_layer.shape[0],\
                         temp_layer.shape[1])) > rate
 
-                self.pop[jj][kk] = temp_layer
+                self.population[jj][kk] = temp_layer
 
 if __name__ == "__main__":
 
     min_generations = 10
-    epds = 4
+    epds = 8 
     save_every = 50
 
     hid_dims = {\
@@ -207,10 +211,7 @@ if __name__ == "__main__":
             "HopperBulletEnv-v0": [32,32]}
 
     env_names = [\
-            "InvertedPendulumBulletEnv-v0",\
-            "InvertedPendulumSwingupBulletEnv-v0",\
-            "InvertedDoublePendulumBulletEnv-v0",\
-            "HopperBulletEnv-v0"]
+            "InvertedPendulumBulletEnv-v0"]
 #             "Walker2DBulletEnv-v0"]
 #            "InvertedPendulumSwingupBulletEnv-v0"]
 #            "ReacherBulletEnv-v0",\
@@ -226,8 +227,7 @@ if __name__ == "__main__":
             "Walker2DBulletEnv-v0": 128}
 
     thresh_performance = {\
-            "InvertedDoublePendulumBulletEnv-v0": 999,\
-            "InvertedPendulumBulletEnv-v0": 999.5,\
+            "InvertedPendulumBulletEnv-v0": 999.,\
             "InvertedPendulumSwingupBulletEnv-v0": 880,\
             "HalfCheetahBulletEnv-v0": 3000,\
             "HopperBulletEnv-v0": 3000,\
