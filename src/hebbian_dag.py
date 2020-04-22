@@ -29,6 +29,7 @@ class HebbianDAG():
             population_size=10, seed=0, discrete=True, random_init=True, neuromodulate=False):
 
         self.neuromodulate = neuromodulate
+
         self.random_init = random_init
         self.input_dim = input_dim
         self.output_dim = act_dim + 1 #output_dim
